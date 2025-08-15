@@ -1,0 +1,276 @@
+ROLE
+You are a senior full-stack engineer + product designer.
+
+TASK
+Build a production-ready multi-file web app for weekly construction progress meetings for “Adams & Grand Demolition.” Use Poe’s OpenAI-compatible API (External Applications) as our LLM layer. Do not call OpenAI directly—route all LLM calls through Poe’s OpenAI-compatible endpoint.
+
+Output Format
+
+Print a full file tree.
+
+Then output each file’s complete code in fenced blocks with // path: <relative path> as the first line.
+
+After code, include: Runbook (env, setup, dev/build/deploy) and Demo Script (happy path flow).
+
+LLM Layer (must use Poe External Apps)
+
+Endpoint: https://api.poe.com/v1
+
+Auth: POE_API_KEY (user-provided; store in .env)
+
+SDK shape: Use OpenAI-compatible clients with baseURL set to Poe endpoint.
+
+Models: Accept model names like gemini-2.5-pro, Claude-Sonnet-4, Grok-4, Llama-3.1-405B, etc.
+
+Streaming: Use OpenAI stream semantics supported by Poe.
+
+Limitations: Tools/function-calling via the /v1/chat/completions endpoint are not supported; implement app-level function calling (see “Assistant Function Calls (App-Level)” below). Audio input is ignored by the OpenAI-compatible endpoint—transcribe audio separately, then feed text to Poe.
+
+Docs (for reference in comments/README): Poe OpenAI-compatible API and External Applications guide. 
+creator.poe.com
++1
+
+Node client bootstrap (use this everywhere):
+
+// path: lib/poeClient.ts
+import OpenAI from "openai";
+
+export const poe = new OpenAI({
+  apiKey: process.env.POE_API_KEY!,
+  baseURL: "https://api.poe.com/v1",
+});
+
+
+Example chat call (streaming):
+
+// path: lib/poeChat.ts
+import { poe } from "./poeClient";
+
+export async function streamLLM(messages: {role:"system"|"user"|"assistant"; content:string}[], model="gemini-2.5-pro") {
+  const stream = await poe.chat.completions.create({ model, messages, stream: true });
+  const chunks: string[] = [];
+  for await (const part of stream) {
+    const delta = part.choices?.[0]?.delta?.content ?? "";
+    if (delta) chunks.push(delta);
+  }
+  return chunks.join("");
+}
+
+Core App Requirements (same as before, summarized)
+
+Stack: Next.js (App Router) + React + TypeScript + Tailwind; Prisma + Postgres; NextAuth (Google/Microsoft); API routes (REST); Vercel or Fly.io deploy.
+
+Pages: /login, /project/:id, /project/:id/meeting/:seq
+
+Meeting UI: Header; Attendance; Agenda & Minutes single table with exact 9 topics & order; inline drawers for RFIs/Submittals/Fabrication; Open Items Log; Distribution; top-right Save / Export (DOCX/PDF/CSV) / Distribute Minutes.
+
+Colors: Headings #03512A, subheadings #1C7850.
+
+Realtime: Y.js minimal collab.
+
+Accessibility: WCAG 2.1 AA, ARIA, keyboard nav.
+
+Exports: DOCX/PDF/CSV; Email minutes; 3-day reminder.
+
+Audio: Upload/record ➜ transcribe (separate STT adapter; e.g., Whisper or Google STT) ➜ LLM extraction via Poe ➜ diff UI ➜ apply.
+
+Data Model (Prisma)
+
+Implement exactly:
+
+Project { id, name, color_primary, color_secondary, created_at }
+
+Meeting { id, project_id(FK), seq_num, date, time, location, prepared_by, created_at }
+
+Attendance { id, meeting_id(FK), role, name, company, present_bool }
+
+AgendaItem { id, meeting_id(FK), topic_order:int, title, discussion:text, decision:text }
+
+ActionItem { id, meeting_id(FK), agenda_item_id(FK nullable), action:text, owner, ball_in_court, due_date, status: enum[Open, In Progress, Closed], notes, source_meeting_id(FK nullable) }
+
+OpenItem { id, project_id(FK), source_meeting_id(FK), item:text, owner, ball_in_court, target_close, status: enum[Open, Closed], notes }
+
+Rfi { id, meeting_id(FK), number, title, submitted_date, response_due, status, impact:text, owner, ball_in_court, notes }
+
+Submittal { id, meeting_id(FK), number, title, spec_section, required_date, submitted_date, review_status, resubmittal_needed_bool, owner, ball_in_court }
+
+Fabrication { id, meeting_id(FK), component, vendor, fab_start, fab_finish, ship_date, need_by, risks, owner, ball_in_court }
+
+Distribution { id, meeting_id(FK), recipient, email, sent_bool }
+
+File { id, meeting_id(FK), type: enum[Audio, Attachment], filename, url, transcription:text nullable, created_at }
+
+User { id, email, name, provider, role: enum[Admin, Standard, Viewer] }
+
+Carry-Forward Logic
+
+New meeting auto-seeds the 9 topics (fixed order).
+
+Carry all ActionItems with status != Closed from last meeting into the new one (create new rows; set source_meeting_id).
+
+OpenItem is the rolling project log; toggle any still-open ActionItem at end of meeting to push into OpenItem.
+
+RFIs/Submittals/Fabrication persist into next week only if “touched” in last two meetings (configurable).
+
+Assistant Function Calls (App-Level, since Poe tools aren’t supported at this endpoint)
+
+Because the Poe OpenAI-compatible endpoint does not support tools/function calling, implement a lightweight contract-based JSON protocol:
+
+System prompt instructs the model to respond with:
+
+{
+  "tool": "insertActionItems" | "createRFI" | "updateAgendaDiscussion" | "distributeMinutes" | "summarizeMeeting",
+  "args": { ... } ,
+  "speak": "<optional human-readable summary>"
+}
+
+
+Validate with Zod; if invalid, ask the model to repair (“Return ONLY valid JSON per the schema. No prose.”).
+
+On valid JSON, call our REST endpoints server-side to mutate the DB; surface results in the chat bubble.
+
+System prompt example (put in code):
+
+export const SYSTEM_ASSISTANT = `
+You are the embedded project assistant for "Adams & Grand Demolition".
+Return ONLY JSON matching the provided "tool" schema.
+Never include Markdown or prose unless in the optional "speak" field.
+Tools:
+- insertActionItems({ meetingId, actions: [{ agendaTopicOrder, action, owner, ballInCourt, dueDate }] })
+- createRFI({ meetingId, number?, title, submittedDate?, responseDue?, owner, ballInCourt, impact })
+- updateAgendaDiscussion({ meetingId, topicOrder, discussion, decision })
+- distributeMinutes({ meetingId, recipients: string[] })
+- summarizeMeeting({ meetingId }) -> { summary, topDecisions: string[], risks: string[], nextSteps: string[] }
+`;
+
+
+Guardrail note: Document in README that endpoint ignores some OpenAI fields and does not support tool calls; we’re handling tool-like actions at app layer. 
+creator.poe.com
+
+Minimal Poe Usage Snippets (include in repo)
+
+Env & server util:
+
+// path: env.d.ts
+declare namespace NodeJS {
+  interface ProcessEnv {
+    POE_API_KEY: string;
+    // ...others (DB, NextAuth, SMTP, S3/GCS, etc.)
+  }
+}
+
+
+Server action calling Poe:
+
+// path: app/api/ai/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { poe } from "@/lib/poeClient";
+import { z } from "zod";
+
+const ToolSchema = z.object({
+  tool: z.enum(["insertActionItems","createRFI","updateAgendaDiscussion","distributeMinutes","summarizeMeeting"]),
+  args: z.record(z.any()),
+  speak: z.string().optional(),
+});
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const { messages, model = "gemini-2.5-pro" } = body;
+
+  const stream = await poe.chat.completions.create({ model, messages, stream: true });
+  let text = "";
+  for await (const part of stream) text += part.choices?.[0]?.delta?.content ?? "";
+
+  // Try parse JSON; if fails, ask model to repair (omitted here for brevity).
+  const parsed = ToolSchema.safeParse(JSON.parse(text.trim()));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid tool JSON", raw: text }, { status: 422 });
+
+  // TODO: dispatch parsed.data.tool to internal services (DB writes, emails, exports).
+  return NextResponse.json(parsed.data);
+}
+
+Audio → Transcription → Poe
+
+Record/upload audio (MP3/M4A/WAV) via MediaRecorder + file input.
+
+Store to S3/GCS; transcribe with your chosen STT (Whisper/OpenAI Responses STT/Google STT) outside Poe.
+
+Feed transcript into the assistant via Poe for extraction/summarization; present diff and on “Apply” persist via our APIs.
+
+Poe’s OpenAI-compatible endpoint ignores audio inputs; this is why transcription is a separate step. 
+creator.poe.com
+
+API (REST under /app/api)
+
+POST /api/projects
+
+POST /api/projects/:id/meetings?carryForward=true
+
+GET /api/projects/:id/meetings/:seq
+
+POST /api/meetings/:id/attendance
+
+POST /api/meetings/:id/agenda/:topicOrder
+
+POST /api/meetings/:id/actions
+
+POST /api/meetings/:id/rfis
+
+POST /api/meetings/:id/submittals
+
+POST /api/meetings/:id/fabrication
+
+POST /api/meetings/:id/files (audio)
+
+POST /api/meetings/:id/distribute
+
+GET /api/meetings/:id/export?format=docx|pdf|csv
+Include Zod validation + role enforcement.
+
+Deliverables
+
+Complete multi-file repo
+
+Prisma schema+migrations+seed (sample project + 2 meetings)
+
+Replit-ready pnpm scripts
+
+.env.example including POE_API_KEY
+
+Tests (Vitest) for carry-forward + key routes
+
+Example assistant tool JSON request/response
+
+Runbook (add to README)
+
+Create Poe API key: https://poe.com/api_key
+
+Set POE_API_KEY in .env and use baseURL=https://api.poe.com/v1 (OpenAI-compatible). 
+creator.poe.com
++1
+
+pnpm i → pnpm prisma migrate dev → pnpm prisma db seed → pnpm dev
+
+Deploy on Vercel/Fly.io; set all env vars.
+
+Cron/edge route for 3-day distribution reminders.
+
+Demo Script (append to README)
+
+Create Meeting 3 (carryForward=true) → verify 9 pre-seeded topics
+
+Upload audio → STT → Poe extraction → accept diff → DB updated
+
+Click Export → DOCX/PDF mirrors colors/layout
+
+Distribute Minutes → email sent + sent_bool set → missing-distribution reminder fires after 3 days
+
+Create Meeting 4 → carry-forward non-closed ActionItems linked by source_meeting_id
+
+Sources you can cite in code comments/README
+
+Poe OpenAI-compatible API (endpoint, baseURL, examples, limits). 
+creator.poe.com
+
+Poe External Applications guide (API key + usage model). 
+creator.poe.com
