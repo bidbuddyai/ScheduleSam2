@@ -86,77 +86,7 @@ export class MemStorage implements IStorage {
   }
 
   private seedData() {
-    // Create sample project
-    const project: Project = {
-      id: "project-1",
-      name: "Downtown Office Complex",
-      colorPrimary: "#03512A",
-      colorSecondary: "#1C7850",
-      createdAt: new Date()
-    };
-    this.projects.set(project.id, project);
-
-    // Create sample meetings
-    const meeting1: Meeting = {
-      id: "meeting-1",
-      projectId: project.id,
-      seqNum: 11,
-      date: "2024-03-08",
-      time: "9:00 AM - 10:30 AM",
-      location: "Main Conference Room",
-      preparedBy: "Sarah Johnson",
-      createdAt: new Date()
-    };
-
-    const meeting2: Meeting = {
-      id: "meeting-2", 
-      projectId: project.id,
-      seqNum: 12,
-      date: "2024-03-15",
-      time: "9:00 AM - 10:30 AM",
-      location: "Main Conference Room",
-      preparedBy: "Sarah Johnson",
-      createdAt: new Date()
-    };
-
-    this.meetings.set(meeting1.id, meeting1);
-    this.meetings.set(meeting2.id, meeting2);
-
-    // Seed agenda topics for meetings
-    const agendaTopics = [
-      "Safety Review & Incidents",
-      "Schedule Review", 
-      "Quality Control",
-      "Subcontractor Coordination",
-      "Material & Equipment Status",
-      "Change Orders & Variations",
-      "Environmental & Compliance",
-      "Budget & Cost Review",
-      "Next Week Planning"
-    ];
-
-    agendaTopics.forEach((title, index) => {
-      const agendaItem1: AgendaItem = {
-        id: `agenda-1-${index + 1}`,
-        meetingId: meeting1.id,
-        topicOrder: index + 1,
-        title,
-        discussion: index < 2 ? `Discussion content for ${title}` : "",
-        decision: index < 2 ? `Decision for ${title}` : ""
-      };
-
-      const agendaItem2: AgendaItem = {
-        id: `agenda-2-${index + 1}`,
-        meetingId: meeting2.id,
-        topicOrder: index + 1,
-        title,
-        discussion: index < 2 ? `Discussion content for ${title}` : "",
-        decision: index < 2 ? `Decision for ${title}` : ""
-      };
-
-      this.agendaItems.set(agendaItem1.id, agendaItem1);
-      this.agendaItems.set(agendaItem2.id, agendaItem2);
-    });
+    // No sample data - clean start
   }
 
   // Projects
