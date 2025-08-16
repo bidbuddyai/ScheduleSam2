@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Upload, FileText, RefreshCw, AlertCircle, Plus, Sparkles, FileUp } from "lucide-react";
+import { Calendar, Upload, FileText, RefreshCw, AlertCircle, Plus, Sparkles, FileUp, Download, FileOutput } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import InteractiveScheduleCreator from "./InteractiveScheduleCreator";
@@ -139,6 +139,48 @@ export default function ScheduleManager({ projectId, meetingId }: ScheduleManage
   };
   
   const handleScheduleUpload = handleScheduleImport; // For backward compatibility
+  
+  const handleExportSchedule = async (scheduleId: string, format: 'pdf' | 'xml' | 'xer') => {
+    try {
+      const response = await fetch(`/api/schedules/${scheduleId}/export/${format}`);
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Determine filename based on format
+      const extension = format === 'xml' ? 'xml' : format === 'xer' ? 'xer' : 'html';
+      a.download = `schedule_${scheduleId}.${extension}`;
+      
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      // If it's PDF (HTML), we need to inform user to print as PDF
+      if (format === 'pdf') {
+        toast({
+          title: "Schedule exported",
+          description: "HTML report downloaded. Open it and print/save as PDF for best results.",
+        });
+      } else {
+        toast({
+          title: "Schedule exported",
+          description: `Schedule exported as ${format.toUpperCase()} successfully.`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Failed to export schedule. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
   
   const cpmSchedules = schedules.filter(s => s.scheduleType === "CPM");
   const lookaheadSchedules = schedules.filter(s => s.scheduleType === "3_WEEK_LOOKAHEAD");
@@ -283,17 +325,52 @@ export default function ScheduleManager({ projectId, meetingId }: ScheduleManage
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge variant="outline">CPM</Badge>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                generateLookaheadMutation.mutate(schedule.id);
-                              }}
-                              disabled={generateLookaheadMutation.isPending}
-                            >
-                              Generate Lookahead
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  generateLookaheadMutation.mutate(schedule.id);
+                                }}
+                                disabled={generateLookaheadMutation.isPending}
+                              >
+                                Generate Lookahead
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title="Export as PDF"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleExportSchedule(schedule.id, 'pdf');
+                                }}
+                              >
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title="Export as MS Project XML"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleExportSchedule(schedule.id, 'xml');
+                                }}
+                              >
+                                <FileOutput className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title="Export as Primavera XER"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleExportSchedule(schedule.id, 'xer');
+                                }}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -341,9 +418,40 @@ export default function ScheduleManager({ projectId, meetingId }: ScheduleManage
       {currentSchedule && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">
-              Schedule Activities - {currentSchedule.scheduleType === "CPM" ? "CPM" : "3-Week Lookahead"}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">
+                Schedule Activities - {currentSchedule.scheduleType === "CPM" ? "CPM" : "3-Week Lookahead"}
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleExportSchedule(currentSchedule.id, 'pdf')}
+                  title="Export as PDF Report"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleExportSchedule(currentSchedule.id, 'xml')}
+                  title="Export as MS Project XML"
+                >
+                  <FileOutput className="h-4 w-4 mr-2" />
+                  MSP
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleExportSchedule(currentSchedule.id, 'xer')}
+                  title="Export as Primavera P6 XER"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  XER
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {activitiesLoading ? (

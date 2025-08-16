@@ -13,6 +13,7 @@ import {
 import { eq, desc } from "drizzle-orm";
 import { generateScheduleWithAI, identifyScheduleImpacts } from "./scheduleAITools";
 import { parseScheduleFile } from "./scheduleParser";
+import { exportSchedule } from "./scheduleExporter";
 import type { Activity } from "../client/src/components/ScheduleEditor";
 
 export function registerScheduleRoutes(app: Express) {
@@ -488,6 +489,61 @@ Format as JSON with:
       res.json(activities);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch activities" });
+    }
+  });
+  
+  // Export schedule in various formats
+  app.get("/api/schedules/:scheduleId/export/:format", async (req, res) => {
+    try {
+      const { scheduleId, format } = req.params;
+      
+      // Validate format
+      if (!['xer', 'xml', 'pdf'].includes(format)) {
+        return res.status(400).json({ error: "Invalid export format. Use xer, xml, or pdf" });
+      }
+      
+      // Get schedule and activities
+      const schedules = await dbStorage.db
+        .select()
+        .from(projectSchedules)
+        .where(eq(projectSchedules.id, scheduleId));
+      
+      if (schedules.length === 0) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      
+      const schedule = schedules[0];
+      const activities = await dbStorage.db
+        .select()
+        .from(scheduleActivities)
+        .where(eq(scheduleActivities.scheduleId, scheduleId))
+        .orderBy(scheduleActivities.startDate);
+      
+      // Get project name
+      const projects = await dbStorage.db
+        .select()
+        .from(dbStorage.schema.projects)
+        .where(eq(dbStorage.schema.projects.id, schedule.projectId));
+      
+      const projectName = projects[0]?.name || 'Project';
+      
+      // Export schedule
+      const exportResult = await exportSchedule(
+        format as 'xer' | 'xml' | 'pdf',
+        schedule,
+        activities,
+        projectName
+      );
+      
+      // Set appropriate headers
+      res.setHeader('Content-Type', exportResult.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${exportResult.filename}"`);
+      
+      // Send file content
+      res.send(exportResult.content);
+    } catch (error) {
+      console.error("Error exporting schedule:", error);
+      res.status(500).json({ error: "Failed to export schedule" });
     }
   });
 }
