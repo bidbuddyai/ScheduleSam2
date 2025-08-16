@@ -1,0 +1,174 @@
+Build an interactive CPM scheduling app (MS Project / P6–class) with AI, TIAs, and developer-managed keys
+
+Create a full-featured Critical Path Method scheduling application comparable to Microsoft Project and Primavera P6, with modern, intuitive UX. Do not specify or constrain the technology stack—just build the app to these behaviors and capabilities.
+
+Scope & constraints
+
+Deliver an interactive, professional CPM scheduling tool with AI assistance.
+
+Include Time Impact Analyses (TIAs) and comprehensive delay analysis workflows.
+
+Developer-managed API keys only for all AI and external services. Never prompt end users for keys; store and use credentials server-side only.
+
+Support offline-friendly editing with queued AI actions that run once connectivity is restored.
+
+Core CPM engine
+
+Deterministic CPM with forward/backward pass, total/free float, critical path highlighting, near-critical path filtering, multiple float paths, and path tracing.
+
+Relationship types: FS, SS, FF, SF with positive/negative lags; lag units in days/hours; allow multiple predecessors/successors per activity.
+
+Constraints: SNET/FNET/SNLT/FNLT/MSO/MFO and Deadlines; warnings for impossible logic.
+
+Calendars: global/project/resource/activity calendars; workweeks, holidays, exceptions; per-task overrides and calendar switching.
+
+Data Date control with visible progress cut-off line; out-of-sequence progress handling (toggle retained logic vs. progress override).
+
+Activity types: Task, Start/Finish Milestones, Level of Effort (LOE), Hammock; optional WBS summary behavior.
+
+Fields/columns (editable grid): ID, Unique ID, WBS, Activity Name, Activity Code(s), Trade, Duration, Start, Finish, Predecessors, Successors, Constraint Type/Date, Calendar, Deadline, % Complete (duration or physical), Remaining Duration, Total/Free Float, Baseline Start/Finish/Duration, Variances, Resource Names, Cost fields, Notes, and Custom Fields (text/number/date/list, with formulas).
+
+Baselines: create, store, and switch among multiple baselines; compute/display variances (dates, duration, float, % complete).
+
+WBS, codes, and classification
+
+Unlimited WBS hierarchy with drag-to-nest, rollups, code masks, and auto/manual numbering.
+
+Activity Codes / User-Defined Fields (UDFs); support P6-style global/project codes and MS Project-style custom fields.
+
+Resources, costs, and (optional) leveling
+
+Labor/equipment/material assignments; resource & crew calendars.
+
+Productivity-based duration option (e.g., quantities × rates).
+
+Optional resource leveling heuristic with priorities, max units, and leveling lookahead.
+
+Time-phased costs/units; Earned Value metrics (PV, EV, AC, SPI, CPI) and S-curves; resource histograms.
+
+TIAs & delay analysis
+
+Fragnet builder: create and insert fragnets at the Data Date (prospective) or historically (retrospective); link to existing tasks.
+
+Scenario engine: run impacted vs. unimpacted scenarios; compute net impact to critical path and contractual milestones; preserve named scenarios.
+
+Windows/time-slice analysis: update-to-update windows showing critical path shifts, float erosion, path changes.
+
+Methods supported and clearly labeled: Impacted As-Planned, Time-Slice Windows, As-Planned vs. As-Built, Collapsed As-Built (but-for).
+
+Concurrency handling: tag delays by party (Owner/Contractor/3rd Party/Force Majeure); classify (excusable/non-excusable; compensable/non-compensable); visualize overlaps.
+
+Evidence links: attach RFIs, submittals, emails, photos, daily reports to events or fragnets; timestamped, auditable chain.
+
+Deliverables: auto-generate TIA reports with narrative, impacted/unimpacted Gantt snapshots, network diagrams, delta tables (dates/logic/float), entitlement/classification summary.
+
+Interactive UX behaviors
+
+Gantt chart: live drag/resize to change dates/durations; create logic by dragging between tasks; inline predecessor/successor editing; instant recalculation.
+
+Network (PDM) diagram: auto-layout, pan/zoom, box styles for status/criticality; clickable path tracing.
+
+Powerful filters/sorts/grouping (by WBS, trade, resource, code, criticality, near-critical, date windows).
+
+Compare any two versions/baselines/scenarios; Delta report of additions/changes/deletions (dates, logic, float, % complete).
+
+Keyboard shortcuts, multi-select edits, undo/redo, autosave; conflict prompts for circular logic or constraint violations.
+
+AI assistance (developer-managed credentials; no end-user keys)
+
+External AI access via an OpenAI-compatible interface (e.g., Poe External Apps) with all credentials supplied server-side only; end users never see or enter keys.
+
+Baseline from documents: Users upload plans/specs (PDF) and optionally list trades/scopes (e.g., abatement, demolition, earthwork). AI should propose:
+
+A WBS and activity list by trade/area,
+
+Durations with stated assumptions/production rates,
+
+Logic with typical lags,
+
+Calendars/constraints derived from spec language,
+
+An initial baseline schedule the user can accept/edit.
+
+Spec-driven updates: Users paste schedule spec requirements (update cadence, narrative content, reporting). AI produces monthly updates, narrative text, logic tweaks, risk/slippage flags, and suggested mitigation.
+
+Iterative Chat & Commands: In-app panel where users type commands like:
+
+“Group abatement tasks under WBS 02 and set SS+2d to demolition starts,”
+
+“Shorten slab removal by 10% and re-level,”
+
+“Shift exterior demo to night shift next week,”
+
+“Apply spec 01 32 16 constraints and re-baseline.”
+Commands must perform real edits, re-run CPM, and show a summary with rationale and affected paths.
+
+Three-Week Lookaheads & updates
+
+One-click 21-day lookaheads (by trade/crew/area): auto-select activities in window, include constraints, access needs, submittals, and equipment/material call-outs.
+
+Progress capture: % complete (duration/physical), remaining duration, actual dates; CSV/XLSX update imports; detect out-of-sequence work and suggest fixes.
+
+Import, export, conversion & round-trip fidelity
+
+Import:
+
+MPP (Microsoft Project), MS Project XML, P6 XER, P6 XML, CSV, XLSX, and PDF (for AI parsing of plans/specs).
+
+Export/Convert (explicitly include these):
+
+MPP, P6 XER, P6 XML, PDF, CSV, XLSX.
+
+PDF exports include: schedule book, Gantt snapshots, network diagrams, three-week lookaheads, update narratives, TIA reports, and change logs.
+
+Conversion & mapping:
+
+Field mapping layer to preserve IDs/UIDs, WBS, calendars, baselines, constraints, relationships, codes, and percent completes where possible.
+
+Human-readable conversion report detailing unmapped or lossy fields.
+
+Target practical round-trip fidelity for MPP ⇄ internal model and P6 XER/XML ⇄ internal model.
+
+Reports & outputs
+
+Critical path report; near-critical list; path analysis with multiple float paths.
+
+Variance to baseline (dates, durations, float, % complete).
+
+Constraints report; out-of-sequence report; open ends report.
+
+Update bundle: native schedule + chosen export format (e.g., MPP, XER, PDF), executive summary, narrative (AI-drafted), lookahead PDFs, and change log.
+
+Cost/EVM: SPI/CPI tables, S-curves; resource histograms.
+
+Customizable templates with company branding.
+
+Collaboration, governance, and auditability
+
+Versioning for every change (who/when/what); exportable revision history.
+
+“Why this?” explanations for AI proposals with source snippets (specs/plans) before applying.
+
+Role-based access (optional), comments on tasks, attachments on tasks/delays/fragnets.
+
+Performance & scale
+
+Smooth handling of 50k+ activities (virtualized grids, incremental calc, efficient graph operations).
+
+Fast recalculation after edits; responsive panning/zooming; snappy search/filter.
+
+Security & configuration
+
+All external AI/model credentials are developer-managed and server-side; never stored client-side; never exposed in the UI.
+
+Data privacy, encryption at rest/in transit; configurable data retention.
+
+Offline-tolerant editing with graceful sync.
+
+Quality & validation
+
+Include a test harness with sample projects for MPP/P6 import/export, conversion checks, logic integrity, baseline variance accuracy, and TIA scenario comparisons.
+
+Provide sample templates for typical construction trades and sequences (can be extended by users).
+
+Deliverable: a working app that fulfills the behaviors above—no backend/frontend tech choices specified—with import and export support for MPP, XER, and PDF (plus CSV/XLSX), robust CPM/TIA features, interactive editing, AI assistance (using developer-managed keys), and professional reporting.
