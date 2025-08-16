@@ -94,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Carry forward action items if requested
+      // Enhanced carry-forward logic for seamless meeting continuity
       if (carryForward === 'true') {
         const previousMeetings = await storage.getMeetingsByProject(req.params.id);
         const sortedMeetings = previousMeetings
@@ -103,20 +103,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (sortedMeetings.length > 0) {
           const lastMeeting = sortedMeetings[0];
-          const actionItems = await storage.getActionItemsByMeeting(lastMeeting.id);
-          const openItems = actionItems.filter(item => item.status !== "Closed");
           
-          for (const item of openItems) {
+          // Carry forward open action items
+          const actionItems = await storage.getActionItemsByMeeting(lastMeeting.id);
+          const openActionItems = actionItems.filter(item => item.status !== "Closed");
+          
+          // Add carried forward items to Action Items & Next Steps agenda
+          const actionAgenda = await storage.getAgendaItemsByMeeting(meeting.id);
+          const actionTopicItem = actionAgenda.find(a => a.title === "Action Items & Next Steps");
+          
+          if (actionTopicItem && openActionItems.length > 0) {
+            // Update the action items agenda with carried forward items summary
+            const carriedForwardSummary = `\n\nCarried forward from Meeting #${lastMeeting.seqNum}:\n` +
+              openActionItems.map(item => `- ${item.action} (Owner: ${item.owner})`).join('\n');
+            
+            await storage.updateAgendaItem(actionTopicItem.id, {
+              discussion: actionTopicItem.discussion + carriedForwardSummary
+            });
+          }
+          
+          // Create action items in new meeting
+          for (const item of openActionItems) {
             await storage.createActionItem({
               meetingId: meeting.id,
-              agendaItemId: item.agendaItemId,
+              agendaItemId: actionTopicItem?.id || null,
               action: item.action,
               owner: item.owner,
               ballInCourt: item.ballInCourt,
               dueDate: item.dueDate,
-              status: item.status,
-              notes: item.notes,
+              status: "Open",
+              notes: `Carried forward from Meeting #${lastMeeting.seqNum}. ${item.notes || ''}`.trim(),
               sourceMeetingId: lastMeeting.id
+            });
+          }
+          
+          // Carry forward unresolved safety issues to Site Safety agenda
+          const lastSafetyAgenda = (await storage.getAgendaItemsByMeeting(lastMeeting.id))
+            .find(a => a.title === "Site Safety");
+          
+          if (lastSafetyAgenda && lastSafetyAgenda.discussion && lastSafetyAgenda.discussion.includes("incident")) {
+            const safetyAgenda = actionAgenda.find(a => a.title === "Site Safety");
+            if (safetyAgenda) {
+              await storage.updateAgendaItem(safetyAgenda.id, {
+                discussion: safetyAgenda.discussion + `\n\nFollow-up from previous meeting required.`
+              });
+            }
+          }
+          
+          // Carry forward any open RFIs
+          const rfis = await storage.getRfisByMeeting(lastMeeting.id);
+          const openRfis = rfis.filter(rfi => rfi.status === "Submitted" || rfi.status === "Pending");
+          
+          for (const rfi of openRfis) {
+            await storage.createRfi({
+              meetingId: meeting.id,
+              number: rfi.number,
+              title: rfi.title,
+              status: rfi.status,
+              owner: rfi.owner,
+              ballInCourt: rfi.ballInCourt,
+              submittedDate: rfi.submittedDate,
+              responseDue: rfi.responseDue,
+              impact: rfi.impact,
+              notes: `Carried forward from Meeting #${lastMeeting.seqNum}. ${rfi.notes || ''}`.trim()
             });
           }
         }
@@ -342,7 +391,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Files
+  // Files with enhanced processing
+  app.get("/api/meetings/:id/files", async (req, res) => {
+    try {
+      const files = await storage.getFilesByMeeting(req.params.id);
+      res.json(files);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch files" });
+    }
+  });
+  
   app.post("/api/meetings/:id/files", async (req, res) => {
     try {
       const data = insertFileSchema.parse({
@@ -355,8 +413,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(400).json({ error: "Invalid file data" });
     }
   });
+  
+  // Process uploaded meeting recording or document  
+  app.post("/api/meetings/:id/process-file", async (req, res) => {
+    try {
+      const { fileContent } = req.body;
+      const meeting = await storage.getMeeting(req.params.id);
+      
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      
+      // Use AI to extract action items and key discussion points
+      const systemPrompt = `Extract from this demolition meeting:
+1. Action items with owners
+2. Safety incidents or concerns  
+3. Key decisions
+4. Items for next meeting
 
-  // Export
+Format as JSON with:
+- actionItems: [{action, owner}]
+- safetyItems: [{issue, severity}]
+- decisions: [{topic, decision}]
+- carryForward: [items]`;
+
+      const response = await poe.chat.completions.create({
+        model: "gemini-2.5-pro",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Meeting #${meeting.seqNum} content:\n${fileContent}` }
+        ]
+      });
+      
+      const content = response.choices[0].message.content || "{}";
+      let extracted;
+      try {
+        extracted = JSON.parse(content);
+      } catch {
+        extracted = { message: content };
+      }
+      
+      // Store extracted action items
+      if (extracted.actionItems && Array.isArray(extracted.actionItems)) {
+        for (const item of extracted.actionItems) {
+          await storage.createActionItem({
+            meetingId: meeting.id,
+            action: item.action,
+            owner: item.owner || "TBD",
+            ballInCourt: item.owner || "TBD",
+            dueDate: null,
+            status: "Open",
+            notes: "Extracted from meeting file",
+            agendaItemId: null,
+            sourceMeetingId: null
+          });
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        extracted,
+        message: "Meeting content processed"
+      });
+    } catch (error) {
+      console.error("Error processing file:", error);
+      res.status(500).json({ error: "Failed to process file" });
+    }
+  });
+
+  // Enhanced Export with Minutes Generation
   app.get("/api/meetings/:id/export", async (req, res) => {
     try {
       const { format } = req.query;
@@ -367,17 +492,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get all meeting data
-      const [agenda, actions, rfis, submittals, fabrication, attendance, distribution] = await Promise.all([
+      const [agenda, actions, rfis, submittals, fabrication, attendance, distribution, project] = await Promise.all([
         storage.getAgendaItemsByMeeting(meeting.id),
         storage.getActionItemsByMeeting(meeting.id),
         storage.getRfisByMeeting(meeting.id),
         storage.getSubmittalsByMeeting(meeting.id),
         storage.getFabricationByMeeting(meeting.id),
         storage.getAttendanceByMeeting(meeting.id),
-        storage.getDistributionByMeeting(meeting.id)
+        storage.getDistributionByMeeting(meeting.id),
+        storage.getProject(meeting.projectId)
       ]);
 
       const exportData = {
+        project,
         meeting,
         agenda,
         actions,
@@ -388,15 +515,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
         distribution
       };
 
-      if (format === 'json') {
+      if (format === 'minutes') {
+        // Generate formatted meeting minutes
+        const minutes = {
+          header: {
+            company: "Adams & Grand Demolition",
+            title: `Weekly Progress Meeting #${meeting.seqNum}`,
+            project: project?.name,
+            date: meeting.date,
+            time: meeting.time,
+            location: meeting.location,
+            preparedBy: meeting.preparedBy
+          },
+          attendees: attendance.filter(a => a.presentBool).map(a => `${a.name} - ${a.company}`),
+          agenda: agenda.map(item => ({
+            topic: item.title,
+            discussion: item.discussion,
+            decision: item.decision
+          })),
+          actionItems: actions.map(item => ({
+            action: item.action,
+            owner: item.owner,
+            dueDate: item.dueDate,
+            status: item.status,
+            notes: item.notes
+          })),
+          nextMeeting: {
+            expectedDate: "TBD",
+            carryForwardItems: actions.filter(a => a.status !== "Closed").length
+          }
+        };
+        res.json(minutes);
+      } else if (format === 'json') {
         res.json(exportData);
       } else {
-        // For now, return JSON for all formats
-        // In production, implement proper DOCX/PDF/CSV export
         res.json(exportData);
       }
     } catch (error) {
       res.status(500).json({ error: "Failed to export meeting" });
+    }
+  });
+  
+  // Generate meeting minutes with AI
+  app.post("/api/meetings/:id/generate-minutes", async (req, res) => {
+    try {
+      const meeting = await storage.getMeeting(req.params.id);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      
+      const [agenda, actions, attendance] = await Promise.all([
+        storage.getAgendaItemsByMeeting(meeting.id),
+        storage.getActionItemsByMeeting(meeting.id),
+        storage.getAttendanceByMeeting(meeting.id)
+      ]);
+      
+      const prompt = `Generate professional meeting minutes for Adams & Grand Demolition Meeting #${meeting.seqNum}.
+Attendees: ${attendance.filter(a => a.presentBool).map(a => a.name).join(', ')}
+
+Agenda Items:
+${agenda.map(a => `${a.title}: ${a.discussion || 'No discussion recorded'}`).join('\n')}
+
+Action Items:
+${actions.map(a => `- ${a.action} (Owner: ${a.owner})`).join('\n')}
+
+Provide a professional summary.`;
+      
+      const response = await poe.chat.completions.create({
+        model: "gemini-2.5-pro",
+        messages: [
+          { role: "system", content: "You are a professional meeting minutes writer. Be concise and professional." },
+          { role: "user", content: prompt }
+        ]
+      });
+      
+      const minutes = response.choices[0].message.content;
+      
+      res.json({ 
+        minutes,
+        meeting,
+        generated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating minutes:", error);
+      res.status(500).json({ error: "Failed to generate minutes" });
     }
   });
 
