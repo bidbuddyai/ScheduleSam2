@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, Calendar, GitBranch, Upload, FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Loader2, Sparkles, Calendar, GitBranch, Upload, FileText, Save, FolderOpen, Clock } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import ScheduleEditor, { type Activity } from "./ScheduleEditor";
@@ -66,6 +68,11 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [uploadedFileNames, setUploadedFileNames] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("Claude-Sonnet-4");
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [scheduleName, setScheduleName] = useState("");
+  const [scheduleNotes, setScheduleNotes] = useState("");
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
   
   // Generate schedule with AI
   const generateScheduleMutation = useMutation({
@@ -102,28 +109,84 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
     },
   });
   
+  // Query for existing schedules
+  const { data: schedules = [] } = useQuery({
+    queryKey: [`/api/projects/${projectId}/schedules`],
+    enabled: showLoadDialog
+  });
+  
   // Save schedule to database
   const saveScheduleMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/projects/${projectId}/schedules/upload`, {
-        scheduleType: "CPM",
-        dataDate: projectStartDate,
+      const response = await apiRequest("POST", `/api/projects/${projectId}/schedules/save`, {
+        name: scheduleName || "Untitled Schedule",
         activities: activities,
-        fileContent: JSON.stringify(activities),
-        notes: "Created with Interactive Schedule Editor"
+        startDate: projectStartDate,
+        notes: scheduleNotes
       });
       return response.json();
     },
     onSuccess: (data) => {
       toast({
         title: "Schedule saved",
-        description: "Your schedule has been saved to the database.",
+        description: `Successfully saved schedule with ${data.activitiesCount} activities.`,
       });
       if (data.schedule?.id) {
         onScheduleCreated?.(data.schedule.id);
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "schedules"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/schedules`] });
+      setShowSaveDialog(false);
+      setScheduleName("");
+      setScheduleNotes("");
     },
+    onError: () => {
+      toast({
+        title: "Save failed",
+        description: "Failed to save schedule. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Load schedule from database
+  const loadScheduleMutation = useMutation({
+    mutationFn: async (scheduleId: string) => {
+      const response = await apiRequest("GET", `/api/schedules/${scheduleId}/activities`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Transform database activities to editor format
+      const transformedActivities: Activity[] = data.map((act: any) => ({
+        activityId: act.activityId,
+        activityName: act.activityName,
+        duration: act.originalDuration || 0,
+        startDate: act.startDate || "",
+        finishDate: act.finishDate || "",
+        predecessors: act.predecessors ? act.predecessors.split(',').filter((p: string) => p) : [],
+        successors: act.successors ? act.successors.split(',').filter((s: string) => s) : [],
+        percentComplete: act.remainingDuration && act.originalDuration 
+          ? Math.round((1 - act.remainingDuration / act.originalDuration) * 100)
+          : 0,
+        totalFloat: act.totalFloat || 0,
+        isCritical: act.totalFloat === 0,
+        status: act.status || "Not Started",
+        wbs: act.notes || ""
+      }));
+      
+      setActivities(transformedActivities);
+      setShowLoadDialog(false);
+      toast({
+        title: "Schedule loaded",
+        description: `Loaded ${transformedActivities.length} activities from saved schedule.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Load failed",
+        description: "Failed to load schedule. Please try again.",
+        variant: "destructive",
+      });
+    }
   });
   
   const handleGenerateSchedule = async () => {
@@ -417,23 +480,33 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
                 </Alert>
               )}
               
-              <Button 
-                onClick={handleGenerateSchedule}
-                disabled={isGenerating}
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {generationProgress || "Generating CPM Schedule..."}
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Generate CPM Schedule
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleGenerateSchedule}
+                  disabled={isGenerating}
+                  className="flex-1"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {generationProgress || "Generating CPM Schedule..."}
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Generate CPM Schedule
+                    </>
+                  )}
+                </Button>
+                
+                <Button 
+                  onClick={() => setShowLoadDialog(true)}
+                  variant="outline"
+                >
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Load Existing
+                </Button>
+              </div>
             </>
           ) : (
             <>
@@ -497,6 +570,14 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
                 </Button>
                 
                 <Button 
+                  onClick={() => setShowLoadDialog(true)}
+                  variant="outline"
+                >
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Load
+                </Button>
+                
+                <Button 
                   onClick={() => {
                     setActivities([]);
                     setProjectDescription("");
@@ -520,9 +601,152 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
           activities={activities}
           onActivitiesChange={setActivities}
           projectStartDate={projectStartDate}
-          onSave={() => saveScheduleMutation.mutate()}
+          onSave={() => {
+            setScheduleName(projectDescription || "CPM Schedule");
+            setScheduleNotes(`Generated with AI (${selectedModel}). ${uploadedFileNames.length > 0 ? `Based on ${uploadedFileNames.length} uploaded document(s).` : ''}`);
+            setShowSaveDialog(true);
+          }}
         />
       )}
+      
+      {/* Save Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Schedule</DialogTitle>
+            <DialogDescription>
+              Save this schedule to the database for future reference and editing.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="schedule-name">Schedule Name</Label>
+              <Input
+                id="schedule-name"
+                value={scheduleName}
+                onChange={(e) => setScheduleName(e.target.value)}
+                placeholder="Enter schedule name..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="schedule-notes">Notes (Optional)</Label>
+              <Textarea
+                id="schedule-notes"
+                value={scheduleNotes}
+                onChange={(e) => setScheduleNotes(e.target.value)}
+                placeholder="Add any notes about this schedule..."
+                rows={3}
+              />
+            </div>
+            <Alert>
+              <AlertDescription>
+                This will save {activities.length} activities with their dependencies and CPM calculations.
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => saveScheduleMutation.mutate()}
+              disabled={saveScheduleMutation.isPending || !scheduleName.trim()}
+            >
+              {saveScheduleMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Schedule
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Load Dialog */}
+      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Load Schedule</DialogTitle>
+            <DialogDescription>
+              Select a previously saved schedule to load and edit.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-96 overflow-y-auto">
+            {schedules.length === 0 ? (
+              <Alert>
+                <AlertDescription>
+                  No saved schedules found. Create and save a schedule first.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              schedules.map((schedule: any) => (
+                <Card 
+                  key={schedule.id} 
+                  className={`cursor-pointer hover:bg-gray-50 ${selectedScheduleId === schedule.id ? 'ring-2 ring-orange-500' : ''}`}
+                  onClick={() => setSelectedScheduleId(schedule.id)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold">{schedule.notes || "Untitled Schedule"}</h3>
+                        <div className="text-sm text-gray-600 mt-1">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-3 w-3" />
+                            <span>Data Date: {schedule.dataDate}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Clock className="h-3 w-3" />
+                            <span>Created: {new Date(schedule.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-medium px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                          {schedule.scheduleType}
+                        </span>
+                        <div className="text-sm text-gray-500 mt-1">
+                          Version {schedule.version}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLoadDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedScheduleId) {
+                  loadScheduleMutation.mutate(selectedScheduleId);
+                }
+              }}
+              disabled={loadScheduleMutation.isPending || !selectedScheduleId}
+            >
+              {loadScheduleMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Load Schedule
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

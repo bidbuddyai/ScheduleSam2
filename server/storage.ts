@@ -3,7 +3,9 @@ import type {
   Project, InsertProject, Meeting, InsertMeeting, Attendance, InsertAttendance,
   AgendaItem, InsertAgendaItem, ActionItem, InsertActionItem, OpenItem, InsertOpenItem,
   Rfi, InsertRfi, Submittal, InsertSubmittal, Fabrication, InsertFabrication,
-  Distribution, InsertDistribution, File, InsertFile, User, InsertUser
+  Distribution, InsertDistribution, File, InsertFile, User, InsertUser,
+  ProjectSchedule, InsertProjectSchedule, ScheduleActivity, InsertScheduleActivity,
+  ScheduleUpdate, InsertScheduleUpdate
 } from "@shared/schema";
 
 export interface IStorage {
@@ -66,6 +68,23 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Project Schedules
+  getSchedulesByProject(projectId: string): Promise<ProjectSchedule[]>;
+  getSchedule(id: string): Promise<ProjectSchedule | undefined>;
+  createSchedule(schedule: InsertProjectSchedule): Promise<ProjectSchedule>;
+  updateSchedule(id: string, updates: Partial<ProjectSchedule>): Promise<ProjectSchedule | undefined>;
+  deleteSchedule(id: string): Promise<boolean>;
+  
+  // Schedule Activities
+  getActivitiesBySchedule(scheduleId: string): Promise<ScheduleActivity[]>;
+  createScheduleActivity(activity: InsertScheduleActivity): Promise<ScheduleActivity>;
+  updateScheduleActivity(id: string, updates: Partial<ScheduleActivity>): Promise<ScheduleActivity | undefined>;
+  deleteScheduleActivities(scheduleId: string): Promise<boolean>;
+  
+  // Schedule Updates
+  getScheduleUpdates(scheduleId: string): Promise<ScheduleUpdate[]>;
+  createScheduleUpdate(update: InsertScheduleUpdate): Promise<ScheduleUpdate>;
 }
 
 export class MemStorage implements IStorage {
@@ -81,6 +100,9 @@ export class MemStorage implements IStorage {
   private distribution = new Map<string, Distribution>();
   private files = new Map<string, File>();
   private users = new Map<string, User>();
+  private schedules = new Map<string, ProjectSchedule>();
+  private scheduleActivities = new Map<string, ScheduleActivity>();
+  private scheduleUpdates = new Map<string, ScheduleUpdate>();
 
   constructor() {
     this.seedData();
@@ -451,10 +473,119 @@ export class MemStorage implements IStorage {
     this.users.set(id, user);
     return user;
   }
+  
+  // Project Schedules
+  async getSchedulesByProject(projectId: string): Promise<ProjectSchedule[]> {
+    return Array.from(this.schedules.values())
+      .filter(s => s.projectId === projectId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async getSchedule(id: string): Promise<ProjectSchedule | undefined> {
+    return this.schedules.get(id);
+  }
+  
+  async createSchedule(insertSchedule: InsertProjectSchedule): Promise<ProjectSchedule> {
+    const id = randomUUID();
+    const schedule: ProjectSchedule = {
+      ...insertSchedule,
+      id,
+      version: insertSchedule.version || 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      fileUrl: insertSchedule.fileUrl ?? null,
+      notes: insertSchedule.notes ?? null
+    };
+    this.schedules.set(id, schedule);
+    return schedule;
+  }
+  
+  async updateSchedule(id: string, updates: Partial<ProjectSchedule>): Promise<ProjectSchedule | undefined> {
+    const existing = this.schedules.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates, updatedAt: new Date() };
+    this.schedules.set(id, updated);
+    return updated;
+  }
+  
+  async deleteSchedule(id: string): Promise<boolean> {
+    // Delete associated activities first
+    const activities = await this.getActivitiesBySchedule(id);
+    activities.forEach(activity => {
+      this.scheduleActivities.delete(activity.id);
+    });
+    return this.schedules.delete(id);
+  }
+  
+  // Schedule Activities
+  async getActivitiesBySchedule(scheduleId: string): Promise<ScheduleActivity[]> {
+    return Array.from(this.scheduleActivities.values())
+      .filter(a => a.scheduleId === scheduleId);
+  }
+  
+  async createScheduleActivity(insertActivity: InsertScheduleActivity): Promise<ScheduleActivity> {
+    const id = randomUUID();
+    const activity: ScheduleActivity = {
+      ...insertActivity,
+      id,
+      activityType: insertActivity.activityType ?? null,
+      originalDuration: insertActivity.originalDuration ?? null,
+      remainingDuration: insertActivity.remainingDuration ?? null,
+      startDate: insertActivity.startDate ?? null,
+      finishDate: insertActivity.finishDate ?? null,
+      totalFloat: insertActivity.totalFloat ?? null,
+      status: insertActivity.status ?? null,
+      predecessors: insertActivity.predecessors ?? null,
+      successors: insertActivity.successors ?? null,
+      notes: insertActivity.notes ?? null
+    };
+    this.scheduleActivities.set(id, activity);
+    return activity;
+  }
+  
+  async updateScheduleActivity(id: string, updates: Partial<ScheduleActivity>): Promise<ScheduleActivity | undefined> {
+    const existing = this.scheduleActivities.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.scheduleActivities.set(id, updated);
+    return updated;
+  }
+  
+  async deleteScheduleActivities(scheduleId: string): Promise<boolean> {
+    const activities = await this.getActivitiesBySchedule(scheduleId);
+    activities.forEach(activity => {
+      this.scheduleActivities.delete(activity.id);
+    });
+    return true;
+  }
+  
+  // Schedule Updates
+  async getScheduleUpdates(scheduleId: string): Promise<ScheduleUpdate[]> {
+    return Array.from(this.scheduleUpdates.values())
+      .filter(u => u.scheduleId === scheduleId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async createScheduleUpdate(insertUpdate: InsertScheduleUpdate): Promise<ScheduleUpdate> {
+    const id = randomUUID();
+    const update: ScheduleUpdate = {
+      ...insertUpdate,
+      id,
+      createdAt: new Date(),
+      meetingId: insertUpdate.meetingId ?? null,
+      affectedActivities: insertUpdate.affectedActivities ?? null,
+      oldValues: insertUpdate.oldValues ?? null,
+      newValues: insertUpdate.newValues ?? null,
+      createdBy: insertUpdate.createdBy ?? null
+    };
+    this.scheduleUpdates.set(id, update);
+    return update;
+  }
 }
 
 // Use database storage if DATABASE_URL is set, otherwise use in-memory
-import { DbStorage } from "./dbStorage";
+// Commenting out DbStorage import since it doesn't exist yet
+// import { DbStorage } from "./dbStorage";
 
 // For now, use in-memory storage to ensure the app works
 // Database connection seems to have issues in the current environment

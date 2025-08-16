@@ -7,14 +7,227 @@ import {
   insertProjectSchema, insertMeetingSchema, insertAttendanceSchema,
   insertAgendaItemSchema, insertActionItemSchema, insertOpenItemSchema,
   insertRfiSchema, insertSubmittalSchema, insertFabricationSchema,
-  insertDistributionSchema, insertFileSchema
+  insertDistributionSchema, insertFileSchema, insertProjectScheduleSchema,
+  insertScheduleActivitySchema
 } from "@shared/schema";
 import { z } from "zod";
-import { registerScheduleRoutes } from "./scheduleRoutes";
+// import { registerScheduleRoutes } from "./scheduleRoutes"; // Disabled for now
 import { ObjectStorageService } from "./objectStorage";
 import { generateScheduleWithAI } from "./scheduleAITools";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Schedule Management Routes
+  app.get("/api/projects/:projectId/schedules", async (req, res) => {
+    try {
+      const schedules = await storage.getSchedulesByProject(req.params.projectId);
+      res.json(schedules);
+    } catch (error) {
+      console.error("Error fetching schedules:", error);
+      res.status(500).json({ error: "Failed to fetch schedules" });
+    }
+  });
+  
+  app.get("/api/schedules/:id", async (req, res) => {
+    try {
+      const schedule = await storage.getSchedule(req.params.id);
+      if (!schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      res.json(schedule);
+    } catch (error) {
+      console.error("Error fetching schedule:", error);
+      res.status(500).json({ error: "Failed to fetch schedule" });
+    }
+  });
+  
+  app.post("/api/projects/:projectId/schedules", async (req, res) => {
+    try {
+      const scheduleData = insertProjectScheduleSchema.parse({
+        ...req.body,
+        projectId: req.params.projectId
+      });
+      const schedule = await storage.createSchedule(scheduleData);
+      res.json(schedule);
+    } catch (error) {
+      console.error("Error creating schedule:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid schedule data", details: error.errors });
+      } else {
+        res.status(500).json({ error: "Failed to create schedule" });
+      }
+    }
+  });
+  
+  app.put("/api/schedules/:id", async (req, res) => {
+    try {
+      const schedule = await storage.updateSchedule(req.params.id, req.body);
+      if (!schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      res.json(schedule);
+    } catch (error) {
+      console.error("Error updating schedule:", error);
+      res.status(500).json({ error: "Failed to update schedule" });
+    }
+  });
+  
+  app.delete("/api/schedules/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteSchedule(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting schedule:", error);
+      res.status(500).json({ error: "Failed to delete schedule" });
+    }
+  });
+  
+  // Schedule Activities
+  app.get("/api/schedules/:scheduleId/activities", async (req, res) => {
+    try {
+      const activities = await storage.getActivitiesBySchedule(req.params.scheduleId);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching activities:", error);
+      res.status(500).json({ error: "Failed to fetch activities" });
+    }
+  });
+  
+  app.post("/api/schedules/:scheduleId/activities", async (req, res) => {
+    try {
+      const { activities } = req.body;
+      
+      // Delete existing activities for this schedule
+      await storage.deleteScheduleActivities(req.params.scheduleId);
+      
+      // Add new activities
+      const createdActivities = [];
+      for (const activity of activities) {
+        const activityData = insertScheduleActivitySchema.parse({
+          ...activity,
+          scheduleId: req.params.scheduleId
+        });
+        const created = await storage.createScheduleActivity(activityData);
+        createdActivities.push(created);
+      }
+      
+      res.json({ success: true, activities: createdActivities });
+    } catch (error) {
+      console.error("Error saving activities:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid activity data", details: error.errors });
+      } else {
+        res.status(500).json({ error: "Failed to save activities" });
+      }
+    }
+  });
+  
+  // Save complete schedule with activities
+  app.post("/api/projects/:projectId/schedules/save", async (req, res) => {
+    try {
+      const { name, activities, startDate } = req.body;
+      
+      // Calculate schedule dates from activities
+      let minDate = startDate || new Date().toISOString().split('T')[0];
+      let maxDate = minDate;
+      
+      activities.forEach((activity: any) => {
+        if (activity.startDate && activity.startDate < minDate) minDate = activity.startDate;
+        if (activity.finishDate && activity.finishDate > maxDate) maxDate = activity.finishDate;
+      });
+      
+      // Create schedule
+      const scheduleData = insertProjectScheduleSchema.parse({
+        projectId: req.params.projectId,
+        scheduleType: 'CPM',
+        dataDate: new Date().toISOString().split('T')[0],
+        startDate: minDate,
+        finishDate: maxDate,
+        notes: name || 'Schedule created from editor'
+      });
+      
+      const schedule = await storage.createSchedule(scheduleData);
+      
+      // Save activities
+      const createdActivities = [];
+      for (const activity of activities) {
+        const activityData = insertScheduleActivitySchema.parse({
+          scheduleId: schedule.id,
+          activityId: activity.activityId,
+          activityName: activity.activityName,
+          originalDuration: activity.duration,
+          remainingDuration: activity.duration * (1 - (activity.percentComplete || 0) / 100),
+          startDate: activity.startDate,
+          finishDate: activity.finishDate,
+          totalFloat: activity.totalFloat,
+          status: activity.status,
+          predecessors: activity.predecessors?.join(','),
+          successors: activity.successors?.join(','),
+          notes: activity.wbs
+        });
+        const created = await storage.createScheduleActivity(activityData);
+        createdActivities.push(created);
+      }
+      
+      res.json({
+        success: true,
+        schedule,
+        activitiesCount: createdActivities.length
+      });
+    } catch (error) {
+      console.error("Error saving schedule:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid schedule data", details: error.errors });
+      } else {
+        res.status(500).json({ error: "Failed to save schedule" });
+      }
+    }
+  });
+  
+  // Load schedule with activities
+  app.get("/api/projects/:projectId/schedules/latest", async (req, res) => {
+    try {
+      const schedules = await storage.getSchedulesByProject(req.params.projectId);
+      if (schedules.length === 0) {
+        return res.json({ schedule: null, activities: [] });
+      }
+      
+      const schedule = schedules[0]; // Already sorted by createdAt desc
+      const activities = await storage.getActivitiesBySchedule(schedule.id);
+      
+      // Transform activities to match frontend format
+      const transformedActivities = activities.map(act => ({
+        id: act.id,
+        activityId: act.activityId,
+        activityName: act.activityName,
+        duration: act.originalDuration || 0,
+        earlyStart: 0,
+        earlyFinish: act.originalDuration || 0,
+        lateStart: 0,
+        lateFinish: act.originalDuration || 0,
+        totalFloat: act.totalFloat || 0,
+        freeFloat: 0,
+        isCritical: act.totalFloat === 0,
+        predecessors: act.predecessors ? act.predecessors.split(',').filter(p => p) : [],
+        successors: act.successors ? act.successors.split(',').filter(s => s) : [],
+        status: act.status || 'Not Started',
+        percentComplete: act.originalDuration && act.remainingDuration 
+          ? Math.round((1 - act.remainingDuration / act.originalDuration) * 100)
+          : 0,
+        startDate: act.startDate || undefined,
+        finishDate: act.finishDate || undefined,
+        resources: [],
+        wbs: act.notes || undefined
+      }));
+      
+      res.json({ schedule, activities: transformedActivities });
+    } catch (error) {
+      console.error("Error loading schedule:", error);
+      res.status(500).json({ error: "Failed to load schedule" });
+    }
+  });
   // Projects
   app.get("/api/projects", async (req, res) => {
     try {
@@ -1215,7 +1428,7 @@ Provide a professional summary.`;
   });
 
   // Register schedule management routes
-  registerScheduleRoutes(app);
+  // registerScheduleRoutes(app); // Disabled since scheduleRoutes is not imported
   
   // Object storage endpoints for file uploads
   app.post("/api/objects/upload", async (req, res) => {
