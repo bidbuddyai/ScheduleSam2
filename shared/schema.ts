@@ -32,7 +32,7 @@ export const projects = pgTable("projects", {
 export const wbs = pgTable("wbs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
-  parentId: varchar("parent_id").references(() => wbs.id),
+  parentId: varchar("parent_id"),
   code: text("code").notNull(),
   name: text("name").notNull(),
   level: integer("level").notNull(),
@@ -86,6 +86,9 @@ export const activities = pgTable("activities", {
   actualFinish: text("actual_finish"),
   baselineStart: text("baseline_start"),
   baselineFinish: text("baseline_finish"),
+  baselineDuration: real("baseline_duration"),
+  baselineCost: real("baseline_cost"),
+  baselineWork: real("baseline_work"),
   
   // Float and criticality
   totalFloat: real("total_float"),
@@ -170,8 +173,31 @@ export const baselines = pgTable("baselines", {
   name: text("name").notNull(),
   description: text("description"),
   isActive: boolean("is_active").default(false),
+  isLocked: boolean("is_locked").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   snapshotData: jsonb("snapshot_data") // Complete snapshot of activities and relationships
+});
+
+// Baseline Activity Snapshots (for easier variance calculations)
+export const baselineActivities = pgTable("baseline_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  baselineId: varchar("baseline_id").references(() => baselines.id).notNull(),
+  originalActivityId: varchar("original_activity_id").references(() => activities.id).notNull(),
+  activityId: text("activity_id").notNull(),
+  name: text("name").notNull(),
+  
+  // Snapshot of dates and durations at baseline time
+  plannedStart: text("planned_start"),
+  plannedFinish: text("planned_finish"),
+  plannedDuration: real("planned_duration"),
+  plannedCost: real("planned_cost"),
+  plannedWork: real("planned_work"),
+  
+  // Additional baseline metadata
+  wbsId: varchar("wbs_id"),
+  type: text("type"),
+  responsibility: text("responsibility"),
+  trade: text("trade")
 });
 
 // TIA (Time Impact Analysis) Scenarios

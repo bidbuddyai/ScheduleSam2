@@ -1,0 +1,32 @@
+8. Baseline Management and Variance Tracking: Implement a robust baseline functionality so users
+can save and compare multiple baselines. Currently, there are fields for baseline dates and duration on
+each task , but no mechanism to capture a snapshot of the schedule and freeze it as a baseline.
+Provide a feature to “Save Baseline” which copies the current schedule’s start/finish/duration for each task
+into a stored baseline (either by populating the baseline fields or by creating a separate baseline record in
+the database). Support multiple named baselines (Baseline 1, Baseline 2, etc.) – possibly store them in a
+separate table or as versions of the schedule. Then, enable variance display: e.g., add columns to the table
+and PDF export for “Start Variance”, “Finish Variance”, “Duration Variance” (difference between current dates
+and baseline dates). Highlight tasks slipping from baseline (finish variance > 0) perhaps in color. Also allow
+the user to select which baseline to compare against if multiple exist. This addresses the goal of baseline
+switching and variance reporting. Additionally, when a baseline is set, you could lock its values to prevent
+accidental edits (only update via “set baseline” action). Ensure that exports (XML, XER) include baseline data
+where possible (MSP XML and Primavera support baseline info). Baseline management is crucial for
+tracking project performance over time and is expected in P6/MS Project class tools.
+9. Resource Leveling and Histograms/EVM: Enhance resource management by adding an automatic
+resource leveling option and earned value calculations. First, resource leveling: implement a simple
+heuristic that resolves resource over-allocations by delaying tasks within their float. This could be an ondemand
+tool where the user clicks “Level Resources” – the algorithm scans for resources assigned to
+overlapping tasks beyond their availability (e.g., one person assigned 200% across two tasks in the same
+period) and then delays some tasks (within their free float) to reduce the overload. Use task priorities or
+float values to decide which tasks to delay. This is complex to perfect, but even a basic leveling (one
+resource at a time, delaying lower-priority tasks) adds value. Second, Earned Value Management: given that
+the app stores cost and work data, compute EV metrics. For each task, compute Planned Value (PV) =
+baseline cost * (time phased up to status date / total duration), Earned Value (EV) = baseline cost * %
+Complete, and Actual Cost (AC) = actual cost expended (you may have users input Actual Cost or infer from
+progress). Then, derive SPI, CPI (schedule and cost performance indices) and other EV metrics at the project
+level. Present these in a dashboard or report. Also, generate resource histograms and S-curves: e.g., total
+labor hours per week or cumulative spend over time. This likely involves aggregating data by time periods –
+consider simplifying by exporting data to a charting library or Excel for now. Even showing a basic chart of
+cumulative baseline vs. actual progress (S-curve) would meet expectations. These features significantly
+broaden the app’s capabilities in project controls, letting users analyze schedule feasibility against resource
+limits and track performance against budget.

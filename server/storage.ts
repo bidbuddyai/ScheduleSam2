@@ -70,6 +70,7 @@ export interface IStorage {
   createBaseline(baseline: InsertBaseline): Promise<Baseline>;
   setActiveBaseline(projectId: string, baselineId: string): Promise<void>;
   deleteBaseline(id: string): Promise<boolean>;
+  calculateVariance(projectId: string, baselineId?: string): Promise<any[]>;
   
   // TIA Scenarios
   getTiaScenariosByProject(projectId: string): Promise<TiaScenario[]>;
@@ -595,15 +596,122 @@ export class MemStorage implements IStorage {
 
   async createBaseline(insertBaseline: InsertBaseline): Promise<Baseline> {
     const id = randomUUID();
+    const projectActivities = await this.getActivitiesByProject(insertBaseline.projectId);
+    const relationships = await this.getRelationshipsByProject(insertBaseline.projectId);
+    
+    // Create comprehensive snapshot
+    const snapshotData = {
+      activities: projectActivities.map(activity => ({
+        id: activity.id,
+        activityId: activity.activityId,
+        name: activity.name,
+        originalDuration: activity.originalDuration,
+        earlyStart: activity.earlyStart,
+        earlyFinish: activity.earlyFinish,
+        budgetedCost: activity.budgetedCost,
+        type: activity.type,
+        wbsId: activity.wbsId
+      })),
+      relationships: relationships,
+      capturedAt: new Date().toISOString(),
+      totalActivities: projectActivities.length
+    };
+    
     const baseline: Baseline = {
       ...insertBaseline,
       id,
       description: insertBaseline.description ?? null,
-      snapshotData: insertBaseline.snapshotData ?? null,
+      snapshotData,
       createdAt: new Date()
     };
     this.baselines.set(id, baseline);
+    
+    // Update activity baseline fields if this is the active baseline
+    if (insertBaseline.isActive) {
+      await this.copyToActivityBaselines(projectActivities, id);
+    }
+    
     return baseline;
+  }
+
+  async copyToActivityBaselines(activities: Activity[], baselineId: string): Promise<void> {
+    activities.forEach(activity => {
+      const existing = this.activities.get(activity.id);
+      if (existing) {
+        this.activities.set(activity.id, {
+          ...existing,
+          baselineStart: activity.earlyStart,
+          baselineFinish: activity.earlyFinish,
+          baselineDuration: activity.originalDuration,
+          baselineCost: activity.budgetedCost,
+          baselineWork: activity.budgetedCost // Simplified assumption
+        });
+      }
+    });
+  }
+
+  async calculateVariance(projectId: string, baselineId?: string): Promise<any[]> {
+    const activities = await this.getActivitiesByProject(projectId);
+    
+    let baseline: Baseline | undefined;
+    if (baselineId) {
+      baseline = this.baselines.get(baselineId);
+    } else {
+      baseline = Array.from(this.baselines.values()).find(b => b.projectId === projectId && b.isActive);
+    }
+    
+    if (!baseline || !baseline.snapshotData || !(baseline.snapshotData as any).activities) {
+      return [];
+    }
+    
+    const baselineActivities = (baseline.snapshotData as any).activities as any[];
+    
+    return activities.map(currentActivity => {
+      const baselineActivity = baselineActivities.find((ba: any) => ba.activityId === currentActivity.activityId);
+      
+      if (!baselineActivity) {
+        return {
+          activityId: currentActivity.activityId,
+          name: currentActivity.name,
+          startVariance: 0,
+          finishVariance: 0,
+          durationVariance: 0,
+          costVariance: 0
+        };
+      }
+      
+      // Calculate date variances in days
+      const startVariance = this.calculateDateVariance(currentActivity.earlyStart, baselineActivity.earlyStart);
+      const finishVariance = this.calculateDateVariance(currentActivity.earlyFinish, baselineActivity.earlyFinish);
+      const durationVariance = (currentActivity.originalDuration || 0) - (baselineActivity.originalDuration || 0);
+      const costVariance = (currentActivity.budgetedCost || 0) - (baselineActivity.budgetedCost || 0);
+      
+      return {
+        activityId: currentActivity.activityId,
+        name: currentActivity.name,
+        currentStart: currentActivity.earlyStart,
+        currentFinish: currentActivity.earlyFinish,
+        baselineStart: baselineActivity.earlyStart,
+        baselineFinish: baselineActivity.earlyFinish,
+        startVariance,
+        finishVariance,
+        durationVariance,
+        costVariance,
+        isSlipping: finishVariance > 0,
+        isCritical: currentActivity.isCritical
+      };
+    });
+  }
+
+  private calculateDateVariance(currentDate: string | null, baselineDate: string | null): number {
+    if (!currentDate || !baselineDate) return 0;
+    
+    const current = new Date(currentDate);
+    const baseline = new Date(baselineDate);
+    const diffTime = current.getTime() - baseline.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
   }
 
   async setActiveBaseline(projectId: string, baselineId: string): Promise<void> {
@@ -613,6 +721,13 @@ export class MemStorage implements IStorage {
         baseline.isActive = baseline.id === baselineId;
       }
     });
+    
+    // Update activity baseline fields from snapshot
+    const baseline = this.baselines.get(baselineId);
+    if (baseline && baseline.snapshotData && (baseline.snapshotData as any).activities) {
+      const baselineActivities = (baseline.snapshotData as any).activities as Activity[];
+      await this.copyToActivityBaselines(baselineActivities, baselineId);
+    }
   }
 
   async deleteBaseline(id: string): Promise<boolean> {

@@ -505,6 +505,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/projects/:projectId/variance", async (req, res) => {
+    try {
+      const { baselineId } = req.query;
+      const variance = await storage.calculateVariance(req.params.projectId, baselineId as string);
+      res.json(variance);
+    } catch (error) {
+      console.error("Error calculating variance:", error);
+      res.status(500).json({ error: "Failed to calculate variance" });
+    }
+  });
+
   // TIA Scenarios
   app.get("/api/projects/:projectId/tia-scenarios", async (req, res) => {
     try {

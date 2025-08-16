@@ -32,6 +32,7 @@ import ActivityDialog from "@/components/ActivityDialog";
 import WBSTree from "@/components/WBSTree";
 import CalendarManager from "@/components/CalendarManager";
 import BaselineManager from "@/components/BaselineManager";
+import VarianceTracker from "@/components/VarianceTracker";
 import TIAManager from "@/components/TIAManager";
 import ConstraintManager from "@/components/ConstraintManager";
 import ProgressTracker from "@/components/ProgressTracker";
@@ -316,7 +317,7 @@ export default function ProjectDetail() {
 
           {/* Main Tabs Interface */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="schedule" className="flex items-center space-x-1">
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Schedule</span>
@@ -336,6 +337,10 @@ export default function ProjectDetail() {
               <TabsTrigger value="baselines" className="flex items-center space-x-1">
                 <Target className="w-4 h-4" />
                 <span className="hidden sm:inline">Baselines</span>
+              </TabsTrigger>
+              <TabsTrigger value="variance" className="flex items-center space-x-1">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="hidden sm:inline">Variance</span>
               </TabsTrigger>
               <TabsTrigger value="tia" className="flex items-center space-x-1">
                 <AlertTriangle className="w-4 h-4" />
@@ -384,8 +389,13 @@ export default function ProjectDetail() {
             <TabsContent value="baselines" className="space-y-4">
               <BaselineManager 
                 projectId={id!}
+              />
+            </TabsContent>
+
+            <TabsContent value="variance" className="space-y-4">
+              <VarianceTracker 
+                projectId={id!}
                 activities={activities}
-                relationships={relationships}
               />
             </TabsContent>
 
