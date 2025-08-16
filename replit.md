@@ -6,6 +6,13 @@ Adams & Grand Demolition Weekly Progress Meetings is a production-ready web appl
 
 Preferred communication style: Simple, everyday language.
 
+## Schedule Management Features
+- **CPM Schedule Upload & Processing**: AI-powered parsing of construction schedules to extract activities, durations, and dependencies
+- **3-Week Lookahead Generation**: Automatic generation of 3-week lookaheads from CPM schedules with activity filtering
+- **Meeting-Driven Updates**: AI analyzes meeting discussions to automatically update schedule activities and statuses
+- **File Upload System**: Direct upload of schedules, documents, and recordings with automatic content extraction
+- **Schedule Integration**: Seamless integration between meetings and project schedules for real-time updates
+
 # System Architecture
 
 ## Frontend Architecture
@@ -83,3 +90,6 @@ Preferred communication style: Simple, everyday language.
 
 ## File Processing
 - **Uppy Ecosystem**: File upload handling with AWS S3 integration, drag-drop interface, and progress tracking
+- **Object Storage Integration**: Direct file uploads to Replit object storage with presigned URLs
+- **Schedule File Processing**: AI-powered extraction of activities from CPM schedules and lookaheads
+- **Meeting File Analysis**: Automatic extraction of action items from uploaded meeting documents

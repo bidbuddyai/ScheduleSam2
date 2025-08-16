@@ -140,6 +140,51 @@ export const users = pgTable("users", {
   role: userRoleEnum("role").notNull().default("Standard")
 });
 
+// Schedule Management Tables
+export const projectSchedules = pgTable("project_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  scheduleType: text("schedule_type").notNull(), // 'CPM' or '3_WEEK_LOOKAHEAD'
+  version: integer("version").notNull().default(1),
+  dataDate: text("data_date").notNull(),
+  startDate: text("start_date").notNull(),
+  finishDate: text("finish_date").notNull(),
+  fileUrl: text("file_url"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+});
+
+export const scheduleActivities = pgTable("schedule_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scheduleId: varchar("schedule_id").references(() => projectSchedules.id).notNull(),
+  activityId: text("activity_id").notNull(),
+  activityName: text("activity_name").notNull(),
+  activityType: text("activity_type"),
+  originalDuration: integer("original_duration"),
+  remainingDuration: integer("remaining_duration"),
+  startDate: text("start_date"),
+  finishDate: text("finish_date"),
+  totalFloat: integer("total_float"),
+  status: text("status"), // 'Not Started', 'In Progress', 'Completed'
+  predecessors: text("predecessors"),
+  successors: text("successors"),
+  notes: text("notes")
+});
+
+export const scheduleUpdates = pgTable("schedule_updates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scheduleId: varchar("schedule_id").references(() => projectSchedules.id).notNull(),
+  meetingId: varchar("meeting_id").references(() => meetings.id),
+  updateType: text("update_type").notNull(), // 'AI_GENERATED', 'MANUAL', 'MEETING_DISCUSSION'
+  updateDescription: text("update_description").notNull(),
+  affectedActivities: text("affected_activities"), // JSON array of activity IDs
+  oldValues: text("old_values"), // JSON of previous values
+  newValues: text("new_values"), // JSON of new values
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
 // Insert schemas
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });
 export const insertMeetingSchema = createInsertSchema(meetings).omit({ id: true, createdAt: true });
@@ -153,6 +198,9 @@ export const insertFabricationSchema = createInsertSchema(fabrication).omit({ id
 export const insertDistributionSchema = createInsertSchema(distribution).omit({ id: true });
 export const insertFileSchema = createInsertSchema(files).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
+export const insertProjectScheduleSchema = createInsertSchema(projectSchedules).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertScheduleActivitySchema = createInsertSchema(scheduleActivities).omit({ id: true });
+export const insertScheduleUpdateSchema = createInsertSchema(scheduleUpdates).omit({ id: true, createdAt: true });
 
 // Types
 export type Project = typeof projects.$inferSelect;
@@ -179,3 +227,9 @@ export type File = typeof files.$inferSelect;
 export type InsertFile = z.infer<typeof insertFileSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type ProjectSchedule = typeof projectSchedules.$inferSelect;
+export type InsertProjectSchedule = z.infer<typeof insertProjectScheduleSchema>;
+export type ScheduleActivity = typeof scheduleActivities.$inferSelect;
+export type InsertScheduleActivity = z.infer<typeof insertScheduleActivitySchema>;
+export type ScheduleUpdate = typeof scheduleUpdates.$inferSelect;
+export type InsertScheduleUpdate = z.infer<typeof insertScheduleUpdateSchema>;

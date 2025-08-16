@@ -9,6 +9,8 @@ import ActionItemsSection from "@/components/ActionItemsSection";
 import OpenItemsSection from "@/components/OpenItemsSection";
 import DistributionSection from "@/components/DistributionSection";
 import AssistantPanel from "@/components/AssistantPanel";
+import ScheduleUpdateSection from "@/components/ScheduleUpdateSection";
+import MeetingFileUpload from "@/components/MeetingFileUpload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { Project, Meeting as MeetingType } from "@shared/schema";
@@ -172,6 +174,12 @@ export default function Meeting() {
           </div>
         </div>
 
+        {/* File Upload & Schedule Integration */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <MeetingFileUpload meetingId={meeting.id} />
+          <ScheduleUpdateSection meetingId={meeting.id} projectId={project.id} />
+        </div>
+        
         {/* AI Assistant */}
         <AssistantPanel meetingId={meeting.id} />
       </main>

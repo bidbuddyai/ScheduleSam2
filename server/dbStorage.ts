@@ -15,6 +15,12 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });
 
 export class DbStorage implements IStorage {
+  // Export database utilities for schedule routes
+  public db = db;
+  public schema = schema;
+  public eq = eq;
+  public desc = desc;
+  
   // Projects
   async getProjects(): Promise<Project[]> {
     return await db.select().from(schema.projects);

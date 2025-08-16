@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import type { Project, Meeting } from "@shared/schema";
 import type { z } from "zod";
+import ScheduleManager from "@/components/ScheduleManager";
 
 type InsertMeetingForm = z.infer<typeof insertMeetingSchema>;
 
@@ -308,6 +309,11 @@ export default function ProjectDetail() {
             )}
           </CardContent>
         </Card>
+        
+        {/* Schedule Management Section */}
+        <section className="mt-6">
+          <ScheduleManager projectId={id!} />
+        </section>
       </main>
     </Layout>
   );

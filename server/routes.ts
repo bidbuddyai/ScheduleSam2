@@ -10,6 +10,8 @@ import {
   insertDistributionSchema, insertFileSchema
 } from "@shared/schema";
 import { z } from "zod";
+import { registerScheduleRoutes } from "./scheduleRoutes";
+import { ObjectStorageService } from "./objectStorage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Projects
@@ -391,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Files with enhanced processing
+  // Files with object storage integration
   app.get("/api/meetings/:id/files", async (req, res) => {
     try {
       const files = await storage.getFilesByMeeting(req.params.id);
@@ -401,16 +403,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get presigned URL for file upload
+  app.post("/api/meetings/:id/files/upload-url", async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+  
+  // Store file record after upload
   app.post("/api/meetings/:id/files", async (req, res) => {
     try {
+      const { uploadURL, fileName, fileType } = req.body;
+      const objectStorageService = new ObjectStorageService();
+      
+      // Normalize the object path
+      const fileUrl = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      
+      // Store file record  
       const data = insertFileSchema.parse({
-        ...req.body,
-        meetingId: req.params.id
+        meetingId: req.params.id,
+        filename: fileName,
+        type: fileType || 'document',
+        url: fileUrl
       });
       const file = await storage.createFile(data);
       res.json(file);
     } catch (error) {
-      res.status(400).json({ error: "Invalid file data" });
+      console.error("Error storing file:", error);
+      res.status(400).json({ error: "Failed to store file" });
     }
   });
   
@@ -673,6 +698,9 @@ Provide a professional summary.`;
     }
   });
 
+  // Register schedule management routes
+  registerScheduleRoutes(app);
+  
   const httpServer = createServer(app);
   return httpServer;
 }
