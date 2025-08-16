@@ -140,8 +140,26 @@ Provide:
       ]
     });
     
-    const content = response.choices[0].message.content || "{}";
-    const result = JSON.parse(content);
+    let content = response.choices[0].message.content || "{}";
+    
+    // Remove any thinking prefix or non-JSON content before the actual JSON
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      content = jsonMatch[0];
+    }
+    
+    let result;
+    try {
+      result = JSON.parse(content);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', content.substring(0, 200));
+      // Return a default structure if parsing fails
+      result = {
+        activities: [],
+        summary: "Failed to parse AI response",
+        recommendations: []
+      };
+    }
     
     // Process activities to ensure they have all required fields
     const activities = (result.activities || []).map((act: any, index: number) => ({

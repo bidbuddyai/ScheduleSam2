@@ -17,18 +17,17 @@ import { exportSchedule } from "./scheduleExporter";
 import type { Activity } from "../client/src/components/ScheduleEditor";
 
 export function registerScheduleRoutes(app: Express) {
-  // Only use schedule routes if we have database storage
-  if (!(storage instanceof DbStorage)) {
-    console.log("Schedule routes require database storage");
-    return;
-  }
-  
-  const dbStorage = storage as DbStorage;
+  // Check if we have database storage
+  const hasDbStorage = storage instanceof DbStorage;
+  const dbStorage = hasDbStorage ? (storage as unknown as DbStorage) : null;
 
   // Get project schedules
   app.get("/api/projects/:projectId/schedules", async (req, res) => {
+    if (!hasDbStorage) {
+      return res.json([]); // Return empty array for in-memory storage
+    }
     try {
-      const schedules = await dbStorage.db
+      const schedules = await dbStorage!.db
         .select()
         .from(projectSchedules)
         .where(eq(projectSchedules.projectId, req.params.projectId))
@@ -41,6 +40,9 @@ export function registerScheduleRoutes(app: Express) {
 
   // Import schedule from XER, MPP, PDF, or XML
   app.post("/api/projects/:projectId/schedules/import", async (req, res) => {
+    if (!hasDbStorage) {
+      return res.status(501).json({ error: "Schedule import requires database storage" });
+    }
     try {
       const { fileContent, filename } = req.body;
       
@@ -52,7 +54,7 @@ export function registerScheduleRoutes(app: Express) {
       }
       
       // Create schedule record
-      const schedule = await dbStorage.db.insert(projectSchedules).values({
+      const schedule = await dbStorage!.db.insert(projectSchedules).values({
         projectId: req.params.projectId,
         scheduleType: "CPM",
         dataDate: parsedData.projectInfo.dataDate || new Date().toISOString().split('T')[0],
@@ -81,7 +83,7 @@ export function registerScheduleRoutes(app: Express) {
       }));
       
       if (activityRecords.length > 0) {
-        await dbStorage.db.insert(scheduleActivities).values(activityRecords);
+        await dbStorage!.db.insert(scheduleActivities).values(activityRecords);
       }
       
       res.json({
@@ -99,6 +101,9 @@ export function registerScheduleRoutes(app: Express) {
   
   // Upload and process schedule file (legacy route for backward compatibility)
   app.post("/api/projects/:projectId/schedules/upload", async (req, res) => {
+    if (!hasDbStorage) {
+      return res.status(501).json({ error: "Schedule upload requires database storage" });
+    }
     try {
       const { scheduleType, fileUrl, fileContent, dataDate } = req.body;
       
@@ -133,7 +138,7 @@ ${fileContent}`;
       }
 
       // Create schedule record
-      const schedule = await dbStorage.db.insert(projectSchedules).values({
+      const schedule = await dbStorage!.db.insert(projectSchedules).values({
         projectId: req.params.projectId,
         scheduleType: scheduleType || "CPM",
         dataDate: dataDate || new Date().toISOString().split('T')[0],
@@ -162,7 +167,7 @@ ${fileContent}`;
           notes: null
         }));
 
-        await dbStorage.db.insert(scheduleActivities).values(activityRecords);
+        await dbStorage!.db.insert(scheduleActivities).values(activityRecords);
       }
 
       res.json({ 
@@ -178,11 +183,14 @@ ${fileContent}`;
 
   // Generate 3-week lookahead from CPM schedule
   app.post("/api/projects/:projectId/schedules/generate-lookahead", async (req, res) => {
+    if (!hasDbStorage) {
+      return res.status(501).json({ error: "Lookahead generation requires database storage" });
+    }
     try {
       const { baseScheduleId, startDate } = req.body;
       
       // Get base schedule activities
-      const activities = await dbStorage.db
+      const activities = await dbStorage!.db
         .select()
         .from(scheduleActivities)
         .where(eq(scheduleActivities.scheduleId, baseScheduleId));
@@ -200,7 +208,7 @@ ${fileContent}`;
       });
 
       // Create lookahead schedule
-      const lookahead = await dbStorage.db.insert(projectSchedules).values({
+      const lookahead = await dbStorage!.db.insert(projectSchedules).values({
         projectId: req.params.projectId,
         scheduleType: "3_WEEK_LOOKAHEAD",
         dataDate: start.toISOString().split('T')[0],
@@ -228,7 +236,7 @@ ${fileContent}`;
           notes: act.notes
         }));
 
-        await dbStorage.db.insert(scheduleActivities).values(lookaheadRecords);
+        await dbStorage!.db.insert(scheduleActivities).values(lookaheadRecords);
       }
 
       res.json({
@@ -243,6 +251,9 @@ ${fileContent}`;
 
   // AI-powered schedule update based on meeting discussion
   app.post("/api/meetings/:meetingId/update-schedule", async (req, res) => {
+    if (!hasDbStorage) {
+      return res.status(501).json({ error: "Schedule update requires database storage" });
+    }
     try {
       const meeting = await storage.getMeeting(req.params.meetingId);
       if (!meeting) {
@@ -256,7 +267,7 @@ ${fileContent}`;
       ]);
 
       // Get latest schedule for the project
-      const schedules = await dbStorage.db
+      const schedules = await dbStorage!.db
         .select()
         .from(projectSchedules)
         .where(eq(projectSchedules.projectId, meeting.projectId))
@@ -268,7 +279,7 @@ ${fileContent}`;
       }
 
       const schedule = schedules[0];
-      const activities = await dbStorage.db
+      const activities = await dbStorage!.db
         .select()
         .from(scheduleActivities)
         .where(eq(scheduleActivities.scheduleId, schedule.id));
@@ -326,7 +337,7 @@ Format as JSON with:
           const updateData: any = {};
           updateData[update.field as string] = update.newValue;
           
-          await dbStorage.db
+          await dbStorage!.db
             .update(scheduleActivities)
             .set(updateData)
             .where(eq(scheduleActivities.id, activity.id));
@@ -336,7 +347,7 @@ Format as JSON with:
       }
 
       // Record the update
-      if (appliedUpdates.length > 0) {
+      if (appliedUpdates.length > 0 && dbStorage) {
         await dbStorage.db.insert(scheduleUpdates).values({
           scheduleId: schedule.id,
           meetingId: meeting.id,
@@ -366,6 +377,8 @@ Format as JSON with:
     try {
       const { type, projectDescription, currentActivities, userRequest, startDate, constraints, uploadedFiles } = req.body;
       
+      console.log('Generating schedule with AI:', { type, projectDescription, uploadedFiles });
+      
       const result = await generateScheduleWithAI({
         type,
         projectDescription,
@@ -376,9 +389,11 @@ Format as JSON with:
         uploadedFiles
       });
       
-      // If creating a new schedule, save it to database
-      if (type === 'create' && result.activities.length > 0) {
-        const schedule = await dbStorage.db.insert(projectSchedules).values({
+      console.log('AI generation result:', { activitiesCount: result.activities.length });
+      
+      // If creating a new schedule and we have DB storage, save it
+      if (type === 'create' && result.activities.length > 0 && hasDbStorage) {
+        const schedule = await dbStorage!.db.insert(projectSchedules).values({
           projectId: req.params.projectId,
           scheduleType: "CPM",
           dataDate: startDate || new Date().toISOString().split('T')[0],
@@ -405,7 +420,7 @@ Format as JSON with:
           notes: act.wbs || null
         }));
         
-        await dbStorage.db.insert(scheduleActivities).values(activityRecords);
+        await dbStorage!.db.insert(scheduleActivities).values(activityRecords);
         
         res.json({
           success: true,
@@ -413,6 +428,7 @@ Format as JSON with:
           ...result
         });
       } else {
+        // Return result without saving to database
         res.json({
           success: true,
           ...result
@@ -420,12 +436,19 @@ Format as JSON with:
       }
     } catch (error) {
       console.error("Error generating AI schedule:", error);
-      res.status(500).json({ error: "Failed to generate schedule" });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ 
+        error: "Failed to generate schedule",
+        details: errorMessage 
+      });
     }
   });
   
   // Generate interactive 3-week lookahead
   app.post("/api/projects/:projectId/schedules/generate-lookahead-ai", async (req, res) => {
+    if (!hasDbStorage) {
+      return res.status(501).json({ error: "Lookahead AI generation requires database storage" });
+    }
     try {
       const { currentActivities, startDate } = req.body;
       
@@ -437,7 +460,7 @@ Format as JSON with:
       });
       
       // Create lookahead schedule in database
-      const lookahead = await dbStorage.db.insert(projectSchedules).values({
+      const lookahead = await dbStorage!.db.insert(projectSchedules).values({
         projectId: req.params.projectId,
         scheduleType: "3_WEEK_LOOKAHEAD",
         dataDate: startDate || new Date().toISOString().split('T')[0],
@@ -465,7 +488,7 @@ Format as JSON with:
           notes: act.wbs || null
         }));
         
-        await dbStorage.db.insert(scheduleActivities).values(activityRecords);
+        await dbStorage!.db.insert(scheduleActivities).values(activityRecords);
       }
       
       res.json({
@@ -481,8 +504,11 @@ Format as JSON with:
   
   // Get schedule activities
   app.get("/api/schedules/:scheduleId/activities", async (req, res) => {
+    if (!hasDbStorage) {
+      return res.json([]); // Return empty array for in-memory storage
+    }
     try {
-      const activities = await dbStorage.db
+      const activities = await dbStorage!.db
         .select()
         .from(scheduleActivities)
         .where(eq(scheduleActivities.scheduleId, req.params.scheduleId))
@@ -495,6 +521,9 @@ Format as JSON with:
   
   // Export schedule in various formats
   app.get("/api/schedules/:scheduleId/export/:format", async (req, res) => {
+    if (!hasDbStorage) {
+      return res.status(501).json({ error: "Schedule export requires database storage" });
+    }
     try {
       const { scheduleId, format } = req.params;
       
@@ -504,7 +533,7 @@ Format as JSON with:
       }
       
       // Get schedule and activities
-      const schedules = await dbStorage.db
+      const schedules = await dbStorage!.db
         .select()
         .from(projectSchedules)
         .where(eq(projectSchedules.id, scheduleId));
@@ -514,14 +543,14 @@ Format as JSON with:
       }
       
       const schedule = schedules[0];
-      const activities = await dbStorage.db
+      const activities = await dbStorage!.db
         .select()
         .from(scheduleActivities)
         .where(eq(scheduleActivities.scheduleId, scheduleId))
         .orderBy(scheduleActivities.startDate);
       
       // Get project name
-      const projects = await dbStorage.db
+      const projects = await dbStorage!.db
         .select()
         .from(dbStorage.schema.projects)
         .where(eq(dbStorage.schema.projects.id, schedule.projectId));
