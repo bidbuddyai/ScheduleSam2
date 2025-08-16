@@ -32,6 +32,8 @@ export default function DistributionSection({ meetingId, isEmbedded = false }: D
     resolver: zodResolver(insertDistributionSchema.omit({ meetingId: true })),
     defaultValues: {
       recipient: "",
+      title: "",
+      company: "",
       email: "",
       sentBool: false
     }
@@ -139,7 +141,33 @@ export default function DistributionSection({ meetingId, isEmbedded = false }: D
                         <FormItem>
                           <FormLabel>Name</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-recipient-name" />
+                            <Input {...field} placeholder="John Smith" data-testid="input-recipient-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Title</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value || ""} placeholder="Project Manager" data-testid="input-recipient-title" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="company"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value || ""} placeholder="ABC Construction" data-testid="input-recipient-company" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -152,7 +180,7 @@ export default function DistributionSection({ meetingId, isEmbedded = false }: D
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input type="email" {...field} data-testid="input-recipient-email" />
+                            <Input type="email" {...field} placeholder="john@example.com" data-testid="input-recipient-email" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -198,8 +226,14 @@ export default function DistributionSection({ meetingId, isEmbedded = false }: D
                   data-testid={`checkbox-recipient-${recipient.id}`}
                 />
                 <div className="flex-1">
-                  <div className="font-medium text-sm text-gray-900">{recipient.recipient}</div>
-                  <div className="text-xs text-gray-500">{recipient.email}</div>
+                  <div className="font-medium text-sm text-gray-900">
+                    {recipient.recipient}
+                    {recipient.title && <span className="text-gray-600 ml-2">- {recipient.title}</span>}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {recipient.company && <span>{recipient.company} • </span>}
+                    {recipient.email}
+                  </div>
                 </div>
                 <span className="text-xs">
                   {recipient.sentBool ? (
@@ -236,7 +270,33 @@ export default function DistributionSection({ meetingId, isEmbedded = false }: D
                         <FormItem>
                           <FormLabel>Name</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-recipient-name" />
+                            <Input {...field} placeholder="John Smith" data-testid="input-recipient-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Title</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value || ""} placeholder="Project Manager" data-testid="input-recipient-title" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="company"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value || ""} placeholder="ABC Construction" data-testid="input-recipient-company" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -249,7 +309,7 @@ export default function DistributionSection({ meetingId, isEmbedded = false }: D
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input type="email" {...field} data-testid="input-recipient-email" />
+                            <Input type="email" {...field} placeholder="john@example.com" data-testid="input-recipient-email" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

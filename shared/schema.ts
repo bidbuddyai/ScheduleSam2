@@ -118,6 +118,8 @@ export const distribution = pgTable("distribution", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   meetingId: varchar("meeting_id").references(() => meetings.id).notNull(),
   recipient: text("recipient").notNull(),
+  title: text("title"),
+  company: text("company"),
   email: text("email").notNull(),
   sentBool: boolean("sent_bool").notNull().default(false)
 });

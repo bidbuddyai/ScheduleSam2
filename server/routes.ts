@@ -627,42 +627,248 @@ Format as JSON with:
   <meta charset="UTF-8">
   <title>Meeting Minutes - ${project?.name || 'Project'} - Meeting #${meeting.seqNum}</title>
   <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1f2937; max-width: 800px; margin: 0 auto; padding: 40px 20px; }
-    .logo { text-align: center; margin-bottom: 30px; }
-    .logo h1 { margin: 10px 0; font-size: 32px; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { 
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif; 
+      line-height: 1.6; 
+      color: #1f2937; 
+      max-width: 900px; 
+      margin: 0 auto; 
+      padding: 40px 20px; 
+      background: #ffffff;
+    }
+    .logo { 
+      text-align: center; 
+      margin-bottom: 40px; 
+      padding-bottom: 20px;
+      border-bottom: 3px solid #e5e7eb;
+    }
+    .logo h1 { 
+      margin: 10px 0; 
+      font-size: 42px; 
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
     .logo .meet { color: #f97316; }
     .logo .bud { color: #3b82f6; }
-    .header-info { background: linear-gradient(135deg, #fef3c7 0%, #dbeafe 100%); padding: 20px; border-radius: 12px; margin-bottom: 30px; }
-    .header-info h2 { color: #1f2937; margin-top: 0; }
-    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .info-item { padding: 5px 0; }
-    h2 { color: #3b82f6; margin-top: 40px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
-    h3 { color: #6b7280; margin-top: 25px; }
-    .attendee-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 20px 0; }
-    .attendee { padding: 8px 12px; border-radius: 6px; background: #f9fafb; }
-    .present { background: #d1fae5; color: #065f46; }
-    .absent { background: #fee2e2; color: #991b1b; }
-    .agenda-item { background: #f9fafb; padding: 20px; margin: 20px 0; border-left: 4px solid #3b82f6; border-radius: 8px; }
-    .agenda-item h4 { color: #1f2937; margin-top: 0; }
-    .action-item { padding: 15px; margin: 12px 0; border-radius: 8px; border-left: 4px solid #f59e0b; }
+    .logo p { 
+      color: #6b7280; 
+      margin: 0; 
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 500;
+    }
+    .header-info { 
+      background: linear-gradient(135deg, #fff7ed 0%, #eff6ff 100%); 
+      padding: 25px; 
+      border-radius: 16px; 
+      margin-bottom: 35px; 
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .header-info h2 { 
+      color: #1f2937; 
+      margin-top: 0; 
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .info-grid { 
+      display: grid; 
+      grid-template-columns: repeat(2, 1fr); 
+      gap: 12px; 
+      margin-top: 15px;
+    }
+    .info-item { 
+      padding: 8px 0; 
+      font-size: 14px;
+    }
+    .info-item strong { 
+      font-weight: 600; 
+      color: #6b7280;
+    }
+    h2 { 
+      color: #1f2937; 
+      margin-top: 45px; 
+      margin-bottom: 20px;
+      font-size: 20px;
+      font-weight: 600;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    h3 { 
+      color: #6b7280; 
+      margin-top: 30px; 
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .distribution-container { 
+      margin: 25px 0; 
+    }
+    .distribution-table { 
+      width: 100%; 
+      border-collapse: separate; 
+      border-spacing: 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .distribution-table th { 
+      background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); 
+      padding: 14px 16px; 
+      text-align: left; 
+      font-weight: 600; 
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    .distribution-table td { 
+      padding: 12px 16px; 
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+    }
+    .distribution-table tr:last-child td { 
+      border-bottom: none; 
+    }
+    .distribution-table tr:hover td { 
+      background: #fafbfc; 
+    }
+    .status-sent { 
+      background: #d1fae5; 
+      color: #065f46; 
+    }
+    .status-pending { 
+      background: #fef3c7; 
+      color: #92400e; 
+    }
+    .attendee-grid { 
+      display: grid; 
+      grid-template-columns: repeat(2, 1fr); 
+      gap: 14px; 
+      margin: 25px 0; 
+    }
+    .attendee { 
+      padding: 12px 16px; 
+      border-radius: 8px; 
+      background: #f9fafb; 
+      font-size: 14px;
+      border: 1px solid #e5e7eb;
+      transition: all 0.2s;
+    }
+    .present { 
+      background: #d1fae5; 
+      color: #065f46; 
+      border-color: #a7f3d0;
+      font-weight: 500;
+    }
+    .absent { 
+      background: #fee2e2; 
+      color: #991b1b; 
+      border-color: #fecaca;
+    }
+    .agenda-item { 
+      background: #fafbfc; 
+      padding: 24px; 
+      margin: 24px 0; 
+      border-left: 4px solid #3b82f6; 
+      border-radius: 12px; 
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .agenda-item h4 { 
+      color: #1f2937; 
+      margin-top: 0; 
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .agenda-item p { 
+      margin: 10px 0; 
+      line-height: 1.7;
+    }
+    .action-item { 
+      padding: 18px; 
+      margin: 14px 0; 
+      border-radius: 10px; 
+      border-left: 4px solid #f59e0b; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
     .action-open { background: #fef3c7; }
     .action-progress { background: #dbeafe; border-left-color: #3b82f6; }
     .action-closed { background: #d1fae5; border-left-color: #10b981; }
-    .action-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+    .action-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 10px; 
+    }
+    .status-badge { 
+      padding: 5px 14px; 
+      border-radius: 20px; 
+      font-size: 11px; 
+      font-weight: 600; 
+      text-transform: uppercase; 
+      letter-spacing: 0.5px;
+    }
     .status-open { background: #fbbf24; color: #78350f; }
     .status-progress { background: #60a5fa; color: #1e3a8a; }
     .status-closed { background: #34d399; color: #064e3b; }
-    .action-details { font-size: 14px; color: #6b7280; line-height: 1.8; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th { background: #f3f4f6; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb; }
-    td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
-    tr:hover { background: #f9fafb; }
-    .footer { margin-top: 60px; padding-top: 30px; border-top: 2px solid #e5e7eb; text-align: center; color: #9ca3af; }
-    .footer-logo { font-size: 20px; margin-bottom: 10px; }
+    .action-details { 
+      font-size: 14px; 
+      color: #6b7280; 
+      line-height: 1.8; 
+    }
+    table { 
+      width: 100%; 
+      border-collapse: separate; 
+      border-spacing: 0;
+      margin: 25px 0; 
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    th { 
+      background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); 
+      padding: 14px 16px; 
+      text-align: left; 
+      font-weight: 600; 
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+      border-bottom: 2px solid #e5e7eb; 
+    }
+    td { 
+      padding: 12px 16px; 
+      border-bottom: 1px solid #f3f4f6; 
+      font-size: 14px;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafbfc; }
+    .footer { 
+      margin-top: 70px; 
+      padding-top: 35px; 
+      border-top: 2px solid #e5e7eb; 
+      text-align: center; 
+      color: #9ca3af; 
+    }
+    .footer-logo { 
+      font-size: 24px; 
+      margin-bottom: 12px; 
+      font-weight: 600;
+    }
+    .footer p { 
+      margin: 5px 0; 
+      font-size: 13px;
+    }
     @media print { 
       body { padding: 20px; }
       .action-item, .agenda-item { break-inside: avoid; }
+      .distribution-table, table { break-inside: avoid; }
     }
   </style>
 </head>
@@ -683,6 +889,38 @@ Format as JSON with:
       <div class="info-item"><strong>Weather:</strong> ${meeting.weather || 'Clear'}</div>
     </div>
   </div>
+  
+  ${distribution.length > 0 ? `
+  <h2>Distribution List</h2>
+  <div class="distribution-container">
+    <table class="distribution-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Title</th>
+          <th>Company</th>
+          <th>Email</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${distribution.map(d => `
+        <tr>
+          <td><strong>${d.recipient}</strong></td>
+          <td>${d.title || 'N/A'}</td>
+          <td>${d.company || 'N/A'}</td>
+          <td>${d.email}</td>
+          <td>
+            ${d.sentBool 
+              ? '<span class="status-badge status-sent">✓ Sent</span>' 
+              : '<span class="status-badge status-pending">Pending</span>'
+            }
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+  ` : ''}
   
   <h2>Attendance</h2>
   <div class="attendee-grid">
@@ -781,14 +1019,25 @@ Format as JSON with:
   ` : ''}
   
   <h2>Next Meeting</h2>
-  <p>The next meeting is to be scheduled. <strong>${openActions.length}</strong> action item${openActions.length !== 1 ? 's' : ''} will carry forward to the next meeting.</p>
+  <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 8px; margin: 20px 0;">
+    <p style="margin: 0;">The next meeting is to be scheduled.</p>
+    <p style="margin: 8px 0 0 0;"><strong>${openActions.length}</strong> action item${openActions.length !== 1 ? 's' : ''} will carry forward to the next meeting.</p>
+  </div>
   
   <div class="footer">
     <div class="footer-logo">
-      <span class="meet">Meet</span><span class="bud">Bud</span>
+      <span class="meet" style="color: #f97316;">Meet</span><span class="bud" style="color: #3b82f6;">Bud</span>
     </div>
-    <p>Generated on ${new Date().toLocaleString()}</p>
-    <p style="font-size: 12px;">© 2024 MeetBud - Construction Meeting Management</p>
+    <p>Meeting Minutes Generated: ${new Date().toLocaleString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })}</p>
+    <p style="font-size: 12px; margin-top: 15px;">© 2024 MeetBud • Professional Construction Meeting Management</p>
+    <p style="font-size: 11px; color: #d1d5db; margin-top: 8px;">This document is confidential and intended solely for the recipients listed in the distribution list above.</p>
   </div>
 </body>
 </html>`;
