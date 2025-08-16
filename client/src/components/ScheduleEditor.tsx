@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, GitBranch, Calendar, Clock, AlertTriangle, Save } from "lucide-react";
+import { Plus, Edit2, Trash2, GitBranch, Calendar, Clock, AlertTriangle, Save, Grid3x3, TableIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import MSProjectGanttChart from "./GanttChart";
 
 export interface Activity {
   id: string;
@@ -374,7 +375,11 @@ export default function ScheduleEditor({
             </TabsContent>
 
             <TabsContent value="gantt">
-              <GanttChart activities={activities} projectStartDate={projectStartDate} />
+              <MSProjectGanttChart 
+                activities={activities} 
+                projectStartDate={projectStartDate}
+                onActivityClick={(activity) => setEditingActivity(activity)}
+              />
             </TabsContent>
 
             <TabsContent value="network">
@@ -499,8 +504,8 @@ export default function ScheduleEditor({
   );
 }
 
-// Gantt Chart Component
-function GanttChart({ activities, projectStartDate }: { activities: Activity[], projectStartDate: string }) {
+// Simple Gantt Chart Component (legacy)
+function SimpleGanttChart({ activities, projectStartDate }: { activities: Activity[], projectStartDate: string }) {
   const startDate = new Date(projectStartDate);
   const endDate = new Date(Math.max(...activities.map(a => new Date(a.finishDate || projectStartDate).getTime())));
   const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
