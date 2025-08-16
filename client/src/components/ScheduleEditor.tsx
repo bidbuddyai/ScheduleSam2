@@ -47,27 +47,11 @@ export default function ScheduleEditor({
   onSave
 }: ScheduleEditorProps) {
   const { toast } = useToast();
-  const [activities, setActivities] = useState<Activity[]>(initialActivities);
-  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
-  const [showActivityDialog, setShowActivityDialog] = useState(false);
-  const [selectedView, setSelectedView] = useState<'table' | 'gantt' | 'network'>('table');
   
-  // Form state for activity editing
-  const [formData, setFormData] = useState({
-    activityId: '',
-    activityName: '',
-    duration: 1,
-    predecessors: '',
-    status: 'Not Started' as Activity['status'],
-    percentComplete: 0,
-    wbs: '',
-    resources: ''
-  });
-
   // Calculate CPM network
-  const calculateCPM = (acts: Activity[]): Activity[] => {
+  const calculateCPM = (acts: Activity[], startDateStr: string): Activity[] => {
     const activityMap = new Map(acts.map(a => [a.activityId, { ...a }]));
-    const startDate = new Date(projectStartDate);
+    const startDate = new Date(startDateStr);
     
     // Forward pass - calculate early start/finish
     const calculateEarlyDates = (activity: Activity, visited = new Set<string>()): void => {
@@ -149,15 +133,37 @@ export default function ScheduleEditor({
     
     return Array.from(activityMap.values());
   };
-
-  // Update activities with CPM calculations
-  useEffect(() => {
-    if (activities.length > 0) {
-      const calculatedActivities = calculateCPM(activities);
-      setActivities(calculatedActivities);
-      onActivitiesChange(calculatedActivities);
+  
+  // Initialize activities with CPM calculations
+  const [activities, setActivities] = useState<Activity[]>(() => {
+    if (initialActivities.length > 0) {
+      return calculateCPM(initialActivities, projectStartDate);
     }
-  }, [initialActivities, projectStartDate]);
+    return initialActivities;
+  });
+  
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [showActivityDialog, setShowActivityDialog] = useState(false);
+  const [selectedView, setSelectedView] = useState<'table' | 'gantt' | 'network'>('table');
+  
+  // Form state for activity editing
+  const [formData, setFormData] = useState({
+    activityId: '',
+    activityName: '',
+    duration: 1,
+    predecessors: '',
+    status: 'Not Started' as Activity['status'],
+    percentComplete: 0,
+    wbs: '',
+    resources: ''
+  });
+
+  // Manually trigger update to parent
+  const updateParentActivities = (newActivities: Activity[]) => {
+    const calculatedActivities = calculateCPM(newActivities, projectStartDate);
+    setActivities(calculatedActivities);
+    onActivitiesChange(calculatedActivities);
+  };
 
   const handleAddActivity = () => {
     setEditingActivity(null);
@@ -231,9 +237,8 @@ export default function ScheduleEditor({
       return { ...activity, successors };
     });
     
-    const calculatedActivities = calculateCPM(updatedActivities);
-    setActivities(calculatedActivities);
-    onActivitiesChange(calculatedActivities);
+    // Update activities and notify parent
+    updateParentActivities(updatedActivities);
     setShowActivityDialog(false);
     
     toast({
@@ -244,9 +249,8 @@ export default function ScheduleEditor({
 
   const handleDeleteActivity = (activityId: string) => {
     const updatedActivities = activities.filter(a => a.id !== activityId);
-    const calculatedActivities = calculateCPM(updatedActivities);
-    setActivities(calculatedActivities);
-    onActivitiesChange(calculatedActivities);
+    // Update activities and notify parent
+    updateParentActivities(updatedActivities);
     
     toast({
       title: "Activity deleted",
@@ -378,7 +382,7 @@ export default function ScheduleEditor({
               <MSProjectGanttChart 
                 activities={activities} 
                 projectStartDate={projectStartDate}
-                onActivityClick={(activity) => setEditingActivity(activity)}
+                onActivityClick={(activity) => handleEditActivity(activity)}
               />
             </TabsContent>
 
