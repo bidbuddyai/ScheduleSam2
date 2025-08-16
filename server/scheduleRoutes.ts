@@ -11,6 +11,8 @@ import {
   scheduleUpdates
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
+import { generateScheduleWithAI, identifyScheduleImpacts } from "./scheduleAITools";
+import type { Activity } from "../client/src/components/ScheduleEditor";
 
 export function registerScheduleRoutes(app: Express) {
   // Only use schedule routes if we have database storage
@@ -299,6 +301,123 @@ Format as JSON with:
     }
   });
 
+  // AI-powered schedule generation
+  app.post("/api/projects/:projectId/schedules/generate-ai", async (req, res) => {
+    try {
+      const { type, projectDescription, currentActivities, userRequest, startDate, constraints } = req.body;
+      
+      const result = await generateScheduleWithAI({
+        type,
+        projectDescription,
+        currentActivities,
+        userRequest,
+        startDate,
+        constraints
+      });
+      
+      // If creating a new schedule, save it to database
+      if (type === 'create' && result.activities.length > 0) {
+        const schedule = await dbStorage.db.insert(projectSchedules).values({
+          projectId: req.params.projectId,
+          scheduleType: "CPM",
+          dataDate: startDate || new Date().toISOString().split('T')[0],
+          startDate: startDate || new Date().toISOString().split('T')[0],
+          finishDate: "", // Will be calculated
+          version: 1,
+          notes: `AI Generated: ${result.summary}`
+        }).returning();
+        
+        // Store activities
+        const activityRecords = result.activities.map((act: Activity) => ({
+          scheduleId: schedule[0].id,
+          activityId: act.activityId,
+          activityName: act.activityName,
+          activityType: "Task",
+          originalDuration: act.duration,
+          remainingDuration: act.duration,
+          startDate: act.startDate || "",
+          finishDate: act.finishDate || "",
+          totalFloat: act.totalFloat || 0,
+          status: act.status,
+          predecessors: act.predecessors.join(','),
+          successors: act.successors.join(','),
+          notes: act.wbs || null
+        }));
+        
+        await dbStorage.db.insert(scheduleActivities).values(activityRecords);
+        
+        res.json({
+          success: true,
+          schedule: schedule[0],
+          ...result
+        });
+      } else {
+        res.json({
+          success: true,
+          ...result
+        });
+      }
+    } catch (error) {
+      console.error("Error generating AI schedule:", error);
+      res.status(500).json({ error: "Failed to generate schedule" });
+    }
+  });
+  
+  // Generate interactive 3-week lookahead
+  app.post("/api/projects/:projectId/schedules/generate-lookahead-ai", async (req, res) => {
+    try {
+      const { currentActivities, startDate } = req.body;
+      
+      const result = await generateScheduleWithAI({
+        type: 'lookahead',
+        currentActivities,
+        userRequest: 'Generate 3-week lookahead',
+        startDate: startDate || new Date().toISOString().split('T')[0]
+      });
+      
+      // Create lookahead schedule in database
+      const lookahead = await dbStorage.db.insert(projectSchedules).values({
+        projectId: req.params.projectId,
+        scheduleType: "3_WEEK_LOOKAHEAD",
+        dataDate: startDate || new Date().toISOString().split('T')[0],
+        startDate: startDate || new Date().toISOString().split('T')[0],
+        finishDate: "", // Will be calculated
+        version: 1,
+        notes: `AI Generated Lookahead: ${result.summary}`
+      }).returning();
+      
+      // Store lookahead activities
+      if (result.activities.length > 0) {
+        const activityRecords = result.activities.map((act: Activity) => ({
+          scheduleId: lookahead[0].id,
+          activityId: act.activityId,
+          activityName: act.activityName,
+          activityType: "Task",
+          originalDuration: act.duration,
+          remainingDuration: act.duration,
+          startDate: act.startDate || "",
+          finishDate: act.finishDate || "",
+          totalFloat: act.totalFloat || 0,
+          status: act.status,
+          predecessors: act.predecessors.join(','),
+          successors: act.successors.join(','),
+          notes: act.wbs || null
+        }));
+        
+        await dbStorage.db.insert(scheduleActivities).values(activityRecords);
+      }
+      
+      res.json({
+        success: true,
+        lookahead: lookahead[0],
+        ...result
+      });
+    } catch (error) {
+      console.error("Error generating AI lookahead:", error);
+      res.status(500).json({ error: "Failed to generate lookahead" });
+    }
+  });
+  
   // Get schedule activities
   app.get("/api/schedules/:scheduleId/activities", async (req, res) => {
     try {

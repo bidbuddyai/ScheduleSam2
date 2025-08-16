@@ -7,9 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Upload, FileText, RefreshCw, AlertCircle } from "lucide-react";
+import { Calendar, Upload, FileText, RefreshCw, AlertCircle, Plus, Sparkles } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import InteractiveScheduleCreator from "./InteractiveScheduleCreator";
 import type { ProjectSchedule, ScheduleActivity } from "@shared/schema";
 
 interface ScheduleManagerProps {
@@ -21,6 +22,7 @@ export default function ScheduleManager({ projectId, meetingId }: ScheduleManage
   const { toast } = useToast();
   const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [uploadType, setUploadType] = useState<"CPM" | "3_WEEK_LOOKAHEAD">("CPM");
   const [fileContent, setFileContent] = useState<string>("");
   
@@ -146,6 +148,27 @@ export default function ScheduleManager({ projectId, meetingId }: ScheduleManage
                   Update from Meeting
                 </Button>
               )}
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="default">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Create with AI
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Interactive CPM Schedule Creator</DialogTitle>
+                  </DialogHeader>
+                  <InteractiveScheduleCreator 
+                    projectId={projectId}
+                    onScheduleCreated={(scheduleId) => {
+                      setShowCreateDialog(false);
+                      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "schedules"] });
+                      setSelectedSchedule(scheduleId);
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
               <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
                 <DialogTrigger asChild>
                   <Button size="sm">

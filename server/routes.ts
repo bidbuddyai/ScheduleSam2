@@ -12,6 +12,7 @@ import {
 import { z } from "zod";
 import { registerScheduleRoutes } from "./scheduleRoutes";
 import { ObjectStorageService } from "./objectStorage";
+import { generateScheduleWithAI } from "./scheduleAITools";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Projects
@@ -659,6 +660,48 @@ Provide a professional summary.`;
           // Execute the tool call
           let result = null;
           switch (parsed.tool) {
+            case 'createSchedule':
+              // Create schedule with AI
+              const scheduleResult = await generateScheduleWithAI({
+                type: 'create',
+                projectDescription: parsed.args.description || parsed.args.projectDescription,
+                userRequest: parsed.args.userRequest || 'Create a complete CPM schedule',
+                startDate: parsed.args.startDate || new Date().toISOString().split('T')[0]
+              });
+              result = scheduleResult;
+              break;
+              
+            case 'updateSchedule':
+              // Update existing schedule
+              const updateResult = await generateScheduleWithAI({
+                type: 'update',
+                currentActivities: parsed.args.currentActivities || [],
+                userRequest: parsed.args.userRequest || parsed.args.updates,
+                startDate: parsed.args.startDate
+              });
+              result = updateResult;
+              break;
+              
+            case 'generateLookahead':
+              // Generate 3-week lookahead
+              const lookaheadResult = await generateScheduleWithAI({
+                type: 'lookahead',
+                currentActivities: parsed.args.currentActivities || [],
+                userRequest: 'Generate 3-week lookahead',
+                startDate: parsed.args.startDate || new Date().toISOString().split('T')[0]
+              });
+              result = lookaheadResult;
+              break;
+              
+            case 'analyzeSchedule':
+              // Analyze schedule
+              const analyzeResult = await generateScheduleWithAI({
+                type: 'analyze',
+                currentActivities: parsed.args.currentActivities || [],
+                userRequest: parsed.args.analysisRequest || 'Analyze critical path and provide recommendations'
+              });
+              result = analyzeResult;
+              break;
             case "insertActionItems":
               // Implementation would go here
               result = { success: true, message: "Action items created" };
