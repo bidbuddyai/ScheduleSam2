@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -21,13 +22,47 @@ interface AssistantResponse {
   response?: string;
 }
 
+// Available models from Poe's OpenAI-compatible API
+const POE_MODELS = [
+  // GPT Models
+  { value: "GPT-5", label: "GPT-5 (Latest)", category: "GPT" },
+  { value: "GPT-5-mini", label: "GPT-5 Mini", category: "GPT" },
+  { value: "GPT-4o", label: "GPT-4o", category: "GPT" },
+  { value: "GPT-4.1", label: "GPT-4.1", category: "GPT" },
+  
+  // Claude Models
+  { value: "Claude-Opus-4.1", label: "Claude Opus 4.1", category: "Claude" },
+  { value: "Claude-Sonnet-4", label: "Claude Sonnet 4 (30k thinking)", category: "Claude" },
+  { value: "Claude-3.5-Sonnet", label: "Claude 3.5 Sonnet", category: "Claude" },
+  
+  // Google Models
+  { value: "Gemini-2.5-Pro", label: "Gemini 2.5 Pro (1M context)", category: "Google" },
+  { value: "Gemini-2.0-Flash", label: "Gemini 2.0 Flash", category: "Google" },
+  
+  // Reasoning Models
+  { value: "o3-pro", label: "o3 Pro (Reasoning)", category: "Reasoning" },
+  { value: "DeepSeek-R1-T", label: "DeepSeek R1-T (Reasoning)", category: "Reasoning" },
+  { value: "DeepSeek-V3-FW", label: "DeepSeek V3-FW", category: "Reasoning" },
+  { value: "Llama-4-Scout-T", label: "Llama 4 Scout-T (Reasoning)", category: "Reasoning" },
+  
+  // Other Leading Models
+  { value: "Grok-4", label: "Grok 4 (xAI)", category: "Other" },
+  { value: "GLM-4.5", label: "GLM 4.5", category: "Other" },
+  { value: "Kimi-K2", label: "Kimi K2", category: "Other" },
+  { value: "Qwen-3-235B-T", label: "Qwen 3 235B-T", category: "Other" },
+  { value: "Mistral-Small-3", label: "Mistral Small 3", category: "Other" },
+  { value: "Llama-4-Maverick", label: "Llama 4 Maverick", category: "Other" },
+];
+
 export default function AssistantPanel({ meetingId }: AssistantPanelProps) {
   const { toast } = useToast();
   const [query, setQuery] = useState("");
+  const [selectedModel, setSelectedModel] = useState("Claude-Sonnet-4");
   const [conversation, setConversation] = useState<Array<{
     type: 'user' | 'assistant';
     content: string;
     timestamp: Date;
+    model?: string;
   }>>([]);
 
   const chatMutation = useMutation({
@@ -40,7 +75,7 @@ export default function AssistantPanel({ meetingId }: AssistantPanelProps) {
           })),
           { role: 'user', content: message }
         ],
-        model: "gemini-2.5-pro"
+        model: selectedModel
       });
       return response.json();
     },
@@ -51,7 +86,8 @@ export default function AssistantPanel({ meetingId }: AssistantPanelProps) {
         { 
           type: 'assistant', 
           content: data.speak || data.response || 'Task completed successfully',
-          timestamp: new Date() 
+          timestamp: new Date(),
+          model: selectedModel
         }
       ]);
       
@@ -95,11 +131,55 @@ export default function AssistantPanel({ meetingId }: AssistantPanelProps) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
       <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-brand-secondary flex items-center space-x-2">
-          <i className="fas fa-robot"></i>
-          <span>Meeting Assistant</span>
-          <span className="text-xs bg-brand-accent text-white px-2 py-1 rounded-full">AI Powered</span>
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-brand-secondary flex items-center space-x-2">
+            <i className="fas fa-robot"></i>
+            <span>Meeting Assistant</span>
+            <span className="text-xs bg-brand-accent text-white px-2 py-1 rounded-full">AI Powered</span>
+          </h3>
+          <Select value={selectedModel} onValueChange={setSelectedModel}>
+            <SelectTrigger className="w-[240px]" data-testid="select-ai-model">
+              <SelectValue placeholder="Select AI Model" />
+            </SelectTrigger>
+            <SelectContent>
+              {/* Group models by category */}
+              <div className="font-semibold text-xs text-gray-500 px-2 py-1">GPT Models</div>
+              {POE_MODELS.filter(m => m.category === "GPT").map(model => (
+                <SelectItem key={model.value} value={model.value} data-testid={`model-${model.value}`}>
+                  {model.label}
+                </SelectItem>
+              ))}
+              
+              <div className="font-semibold text-xs text-gray-500 px-2 py-1 mt-2">Claude Models</div>
+              {POE_MODELS.filter(m => m.category === "Claude").map(model => (
+                <SelectItem key={model.value} value={model.value} data-testid={`model-${model.value}`}>
+                  {model.label}
+                </SelectItem>
+              ))}
+              
+              <div className="font-semibold text-xs text-gray-500 px-2 py-1 mt-2">Google Models</div>
+              {POE_MODELS.filter(m => m.category === "Google").map(model => (
+                <SelectItem key={model.value} value={model.value} data-testid={`model-${model.value}`}>
+                  {model.label}
+                </SelectItem>
+              ))}
+              
+              <div className="font-semibold text-xs text-gray-500 px-2 py-1 mt-2">Reasoning Models</div>
+              {POE_MODELS.filter(m => m.category === "Reasoning").map(model => (
+                <SelectItem key={model.value} value={model.value} data-testid={`model-${model.value}`}>
+                  {model.label}
+                </SelectItem>
+              ))}
+              
+              <div className="font-semibold text-xs text-gray-500 px-2 py-1 mt-2">Other Models</div>
+              {POE_MODELS.filter(m => m.category === "Other").map(model => (
+                <SelectItem key={model.value} value={model.value} data-testid={`model-${model.value}`}>
+                  {model.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="p-6">
         {/* Conversation History */}
@@ -202,10 +282,13 @@ export default function AssistantPanel({ meetingId }: AssistantPanelProps) {
               <div className="flex items-start space-x-3">
                 <i className="fas fa-lightbulb text-blue-600 mt-1"></i>
                 <div>
-                  <h4 className="font-medium text-blue-900 mb-1">AI Assistant Ready</h4>
+                  <h4 className="font-medium text-blue-900 mb-1">AI Assistant Ready - Using {POE_MODELS.find(m => m.value === selectedModel)?.label || selectedModel}</h4>
                   <p className="text-sm text-blue-700">
                     I can help you create action items, summarize discussions, manage RFIs, and distribute meeting minutes. 
                     Try asking me to analyze your meeting content or use the quick action buttons above.
+                  </p>
+                  <p className="text-xs text-blue-600 mt-2">
+                    Powered by Poe's OpenAI-compatible API with access to GPT-5, Claude, Gemini, and advanced reasoning models.
                   </p>
                 </div>
               </div>
