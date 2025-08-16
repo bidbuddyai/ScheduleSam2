@@ -36,6 +36,8 @@ import VarianceTracker from "@/components/VarianceTracker";
 import TIAManager from "@/components/TIAManager";
 import ConstraintManager from "@/components/ConstraintManager";
 import ProgressTracker from "@/components/ProgressTracker";
+import ActivityComments from "@/components/ActivityComments";
+import AuditTrail from "@/components/AuditTrail";
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -346,6 +348,10 @@ export default function ProjectDetail() {
                 <AlertTriangle className="w-4 h-4" />
                 <span className="hidden sm:inline">TIA</span>
               </TabsTrigger>
+              <TabsTrigger value="collaboration" className="flex items-center space-x-1">
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">Collaboration</span>
+              </TabsTrigger>
               <TabsTrigger value="settings" className="flex items-center space-x-1">
                 <Settings className="w-4 h-4" />
                 <span className="hidden sm:inline">Settings</span>
@@ -405,6 +411,34 @@ export default function ProjectDetail() {
                 activities={activities}
                 relationships={relationships}
               />
+            </TabsContent>
+
+            <TabsContent value="collaboration" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {selectedActivityId && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Activity Comments</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ActivityComments
+                        activityId={selectedActivityId}
+                        projectId={id!}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Schedule Audit Trail</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AuditTrail
+                      projectId={id!}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="settings" className="space-y-4">

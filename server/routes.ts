@@ -516,6 +516,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Activity Comments
+  app.get("/api/activities/:activityId/comments", async (req, res) => {
+    try {
+      const comments = await storage.getActivityComments(req.params.activityId);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      res.status(500).json({ error: "Failed to fetch comments" });
+    }
+  });
+
+  app.post("/api/activities/:activityId/comments", async (req, res) => {
+    try {
+      const comment = await storage.createActivityComment({
+        ...req.body,
+        activityId: req.params.activityId
+      });
+      res.json(comment);
+    } catch (error) {
+      console.error("Error creating comment:", error);
+      res.status(500).json({ error: "Failed to create comment" });
+    }
+  });
+
+  app.put("/api/comments/:commentId/resolve", async (req, res) => {
+    try {
+      const comment = await storage.resolveComment(req.params.commentId);
+      if (!comment) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
+      res.json(comment);
+    } catch (error) {
+      console.error("Error resolving comment:", error);
+      res.status(500).json({ error: "Failed to resolve comment" });
+    }
+  });
+
+  // Attachments
+  app.get("/api/activities/:activityId/attachments", async (req, res) => {
+    try {
+      const attachments = await storage.getAttachmentsByActivity(req.params.activityId);
+      res.json(attachments);
+    } catch (error) {
+      console.error("Error fetching attachments:", error);
+      res.status(500).json({ error: "Failed to fetch attachments" });
+    }
+  });
+
+  app.get("/api/projects/:projectId/attachments", async (req, res) => {
+    try {
+      const attachments = await storage.getAttachmentsByProject(req.params.projectId);
+      res.json(attachments);
+    } catch (error) {
+      console.error("Error fetching attachments:", error);
+      res.status(500).json({ error: "Failed to fetch attachments" });
+    }
+  });
+
+  app.post("/api/attachments", async (req, res) => {
+    try {
+      const attachment = await storage.createAttachment(req.body);
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error creating attachment:", error);
+      res.status(500).json({ error: "Failed to create attachment" });
+    }
+  });
+
+  // Audit Logs
+  app.get("/api/projects/:projectId/audit-logs", async (req, res) => {
+    try {
+      const { entityId, entityType } = req.query;
+      const logs = await storage.getAuditLogs(
+        req.params.projectId, 
+        entityId as string | undefined,
+        entityType as string | undefined
+      );
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+
+  // Project Members
+  app.get("/api/projects/:projectId/members", async (req, res) => {
+    try {
+      const members = await storage.getProjectMembers(req.params.projectId);
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching project members:", error);
+      res.status(500).json({ error: "Failed to fetch project members" });
+    }
+  });
+
+  app.post("/api/projects/:projectId/members", async (req, res) => {
+    try {
+      const member = await storage.createProjectMember({
+        ...req.body,
+        projectId: req.params.projectId
+      });
+      res.json(member);
+    } catch (error) {
+      console.error("Error adding project member:", error);
+      res.status(500).json({ error: "Failed to add project member" });
+    }
+  });
+
+  app.put("/api/members/:memberId", async (req, res) => {
+    try {
+      const member = await storage.updateProjectMember(req.params.memberId, req.body);
+      if (!member) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      res.json(member);
+    } catch (error) {
+      console.error("Error updating project member:", error);
+      res.status(500).json({ error: "Failed to update project member" });
+    }
+  });
+
+  // Schedule Versions
+  app.get("/api/projects/:projectId/versions", async (req, res) => {
+    try {
+      const versions = await storage.getScheduleVersions(req.params.projectId);
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching schedule versions:", error);
+      res.status(500).json({ error: "Failed to fetch schedule versions" });
+    }
+  });
+
+  app.post("/api/projects/:projectId/versions", async (req, res) => {
+    try {
+      const version = await storage.createScheduleVersion({
+        ...req.body,
+        projectId: req.params.projectId
+      });
+      res.json(version);
+    } catch (error) {
+      console.error("Error creating schedule version:", error);
+      res.status(500).json({ error: "Failed to create schedule version" });
+    }
+  });
+
+  app.post("/api/versions/:versionId/restore", async (req, res) => {
+    try {
+      const success = await storage.restoreScheduleVersion(req.params.versionId);
+      if (!success) {
+        return res.status(404).json({ error: "Version not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error restoring schedule version:", error);
+      res.status(500).json({ error: "Failed to restore schedule version" });
+    }
+  });
+
   // TIA Scenarios
   app.get("/api/projects/:projectId/tia-scenarios", async (req, res) => {
     try {

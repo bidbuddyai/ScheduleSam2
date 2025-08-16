@@ -296,6 +296,81 @@ export const aiContext = pgTable("ai_context", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
+// Activity Comments for collaboration
+export const activityComments = pgTable("activity_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").references(() => activities.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  parentId: varchar("parent_id"), // For threaded discussions
+  content: text("content").notNull(),
+  authorName: text("author_name").notNull(),
+  authorRole: text("author_role"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  isResolved: boolean("is_resolved").default(false),
+  mentionedUsers: text("mentioned_users").array(), // Array of user IDs/names
+  attachmentIds: text("attachment_ids").array() // Array of attachment IDs
+});
+
+// File Attachments for activities and projects
+export const attachments = pgTable("attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  activityId: varchar("activity_id").references(() => activities.id),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size").notNull(),
+  fileType: text("file_type").notNull(),
+  storageUrl: text("storage_url").notNull(),
+  uploadedBy: text("uploaded_by").notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  description: text("description"),
+  category: text("category").default("Document"), // Document, Image, Drawing, RFI, Submittal, Report, Other
+  tags: text("tags").array()
+});
+
+// Audit Trail for all schedule changes
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  entityType: text("entity_type").notNull(), // "activity", "relationship", "project", etc.
+  entityId: text("entity_id").notNull(),
+  action: text("action").notNull(), // Create, Update, Delete, Import, Export, Calculate, BaselineSet
+  changes: jsonb("changes"), // JSON object with old and new values
+  performedBy: text("performed_by").notNull(),
+  performedAt: timestamp("performed_at").defaultNow().notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  notes: text("notes")
+});
+
+// Project Members and Roles
+export const projectMembers = pgTable("project_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  userId: text("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  email: text("email"),
+  role: text("role").notNull(), // Owner, Scheduler, Manager, Viewer, Contributor
+  permissions: jsonb("permissions"), // Detailed permissions object
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  lastActiveAt: timestamp("last_active_at"),
+  isActive: boolean("is_active").default(true)
+});
+
+// Schedule Versions for version history
+export const scheduleVersions = pgTable("schedule_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  versionNumber: integer("version_number").notNull(),
+  versionName: text("version_name"),
+  description: text("description"),
+  snapshotData: jsonb("snapshot_data").notNull(), // Complete schedule snapshot
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  isAutoSave: boolean("is_auto_save").default(false),
+  changesSummary: jsonb("changes_summary") // Summary of what changed
+});
+
 // Insert schemas
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWbsSchema = createInsertSchema(wbs).omit({ id: true });
@@ -313,6 +388,11 @@ export const insertTiaResultSchema = createInsertSchema(tiaResults).omit({ id: t
 export const insertScheduleUpdateSchema = createInsertSchema(scheduleUpdates).omit({ id: true, createdAt: true });
 export const insertImportExportHistorySchema = createInsertSchema(importExportHistory).omit({ id: true, createdAt: true });
 export const insertAiContextSchema = createInsertSchema(aiContext).omit({ id: true, createdAt: true });
+export const insertActivityCommentSchema = createInsertSchema(activityComments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAttachmentSchema = createInsertSchema(attachments).omit({ id: true, uploadedAt: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, performedAt: true });
+export const insertProjectMemberSchema = createInsertSchema(projectMembers).omit({ id: true, joinedAt: true });
+export const insertScheduleVersionSchema = createInsertSchema(scheduleVersions).omit({ id: true, createdAt: true });
 
 // Types
 export type Project = typeof projects.$inferSelect;
@@ -347,3 +427,13 @@ export type ImportExportHistory = typeof importExportHistory.$inferSelect;
 export type InsertImportExportHistory = z.infer<typeof insertImportExportHistorySchema>;
 export type AiContext = typeof aiContext.$inferSelect;
 export type InsertAiContext = z.infer<typeof insertAiContextSchema>;
+export type ActivityComment = typeof activityComments.$inferSelect;
+export type InsertActivityComment = z.infer<typeof insertActivityCommentSchema>;
+export type Attachment = typeof attachments.$inferSelect;
+export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type ProjectMember = typeof projectMembers.$inferSelect;
+export type InsertProjectMember = z.infer<typeof insertProjectMemberSchema>;
+export type ScheduleVersion = typeof scheduleVersions.$inferSelect;
+export type InsertScheduleVersion = z.infer<typeof insertScheduleVersionSchema>;

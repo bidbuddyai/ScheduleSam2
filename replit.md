@@ -15,6 +15,10 @@ Preferred communication style: Simple, everyday language.
 - **Visual Schedule Grid**: Enhanced activity grid with hierarchical WBS display, comprehensive filtering, search, and column visibility controls
 - **Constraint Handling**: Advanced constraint types (SNET, SNLT, FNET, FNLT, MSO, MFO) with violation detection and reporting
 - **Progress Tracking**: Comprehensive progress management with percent complete, actual dates, and remaining duration updates
+- **Baseline Management**: Multiple named baselines with snapshot capture, variance tracking, and color-coded schedule slippage visualization
+- **Collaboration Tools**: Threaded comments on activities, file attachments via object storage, role-based access control (Owner, Scheduler, Manager, Viewer, Contributor)
+- **Audit Trail System**: Complete change tracking with timestamps, user attribution, and detailed change logs for all schedule modifications
+- **Version History**: Schedule versioning with auto-save capabilities, complete snapshot storage, and version restoration functionality
 
 # System Architecture
 

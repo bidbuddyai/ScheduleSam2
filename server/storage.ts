@@ -7,7 +7,10 @@ import type {
   TiaFragnet, InsertTiaFragnet, TiaDelay, InsertTiaDelay,
   TiaResult, InsertTiaResult, ScheduleUpdate, InsertScheduleUpdate,
   ImportExportHistory, InsertImportExportHistory, AiContext, InsertAiContext,
-  ActivityCode, InsertActivityCode
+  ActivityCode, InsertActivityCode,
+  ActivityComment, InsertActivityComment, Attachment, InsertAttachment,
+  AuditLog, InsertAuditLog, ProjectMember, InsertProjectMember,
+  ScheduleVersion, InsertScheduleVersion
 } from "@shared/schema";
 
 export interface IStorage {
@@ -83,6 +86,30 @@ export interface IStorage {
   getScheduleUpdatesByProject(projectId: string): Promise<ScheduleUpdate[]>;
   getScheduleUpdate(id: string): Promise<ScheduleUpdate | undefined>;
   createScheduleUpdate(update: InsertScheduleUpdate): Promise<ScheduleUpdate>;
+  
+  // Activity Comments
+  getActivityComments(activityId: string): Promise<ActivityComment[]>;
+  createActivityComment(comment: InsertActivityComment): Promise<ActivityComment>;
+  resolveComment(commentId: string): Promise<ActivityComment | undefined>;
+  
+  // Attachments
+  getAttachmentsByActivity(activityId: string): Promise<Attachment[]>;
+  getAttachmentsByProject(projectId: string): Promise<Attachment[]>;
+  createAttachment(attachment: InsertAttachment): Promise<Attachment>;
+  
+  // Audit Logs
+  getAuditLogs(projectId: string, entityId?: string, entityType?: string): Promise<AuditLog[]>;
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  
+  // Project Members
+  getProjectMembers(projectId: string): Promise<ProjectMember[]>;
+  createProjectMember(member: InsertProjectMember): Promise<ProjectMember>;
+  updateProjectMember(id: string, updates: Partial<ProjectMember>): Promise<ProjectMember | undefined>;
+  
+  // Schedule Versions
+  getScheduleVersions(projectId: string): Promise<ScheduleVersion[]>;
+  createScheduleVersion(version: InsertScheduleVersion): Promise<ScheduleVersion>;
+  restoreScheduleVersion(versionId: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -102,6 +129,11 @@ export class MemStorage implements IStorage {
   private importExportHistory = new Map<string, ImportExportHistory>();
   private aiContext = new Map<string, AiContext>();
   private activityCodes = new Map<string, ActivityCode>();
+  private activityComments = new Map<string, ActivityComment>();
+  private attachments = new Map<string, Attachment>();
+  private auditLogs = new Map<string, AuditLog>();
+  private projectMembers = new Map<string, ProjectMember>();
+  private scheduleVersions = new Map<string, ScheduleVersion>();
 
   constructor() {
     this.seedData();
@@ -793,6 +825,237 @@ export class MemStorage implements IStorage {
     };
     this.scheduleUpdates.set(id, update);
     return update;
+  }
+
+  // Activity Comments
+  async getActivityComments(activityId: string): Promise<ActivityComment[]> {
+    return Array.from(this.activityComments.values())
+      .filter(c => c.activityId === activityId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
+
+  async createActivityComment(comment: InsertActivityComment): Promise<ActivityComment> {
+    const id = randomUUID();
+    const newComment: ActivityComment = {
+      ...comment,
+      id,
+      parentId: comment.parentId ?? null,
+      authorRole: comment.authorRole ?? null,
+      isResolved: comment.isResolved ?? false,
+      mentionedUsers: comment.mentionedUsers ?? null,
+      attachmentIds: comment.attachmentIds ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.activityComments.set(id, newComment);
+    
+    // Create audit log
+    await this.createAuditLog({
+      projectId: comment.projectId,
+      entityType: 'comment',
+      entityId: id,
+      action: 'Create',
+      performedBy: comment.authorName,
+      notes: `Added comment to activity ${comment.activityId}`
+    });
+    
+    return newComment;
+  }
+
+  async resolveComment(commentId: string): Promise<ActivityComment | undefined> {
+    const comment = this.activityComments.get(commentId);
+    if (!comment) return undefined;
+    
+    comment.isResolved = true;
+    comment.updatedAt = new Date();
+    this.activityComments.set(commentId, comment);
+    
+    // Create audit log
+    await this.createAuditLog({
+      projectId: comment.projectId,
+      entityType: 'comment',
+      entityId: commentId,
+      action: 'Update',
+      performedBy: 'System',
+      notes: 'Comment marked as resolved'
+    });
+    
+    return comment;
+  }
+
+  // Attachments
+  async getAttachmentsByActivity(activityId: string): Promise<Attachment[]> {
+    return Array.from(this.attachments.values())
+      .filter(a => a.activityId === activityId);
+  }
+
+  async getAttachmentsByProject(projectId: string): Promise<Attachment[]> {
+    return Array.from(this.attachments.values())
+      .filter(a => a.projectId === projectId);
+  }
+
+  async createAttachment(attachment: InsertAttachment): Promise<Attachment> {
+    const id = randomUUID();
+    const newAttachment: Attachment = {
+      ...attachment,
+      id,
+      activityId: attachment.activityId ?? null,
+      description: attachment.description ?? null,
+      category: attachment.category ?? 'Document',
+      tags: attachment.tags ?? null,
+      uploadedAt: new Date()
+    };
+    this.attachments.set(id, newAttachment);
+    
+    // Create audit log
+    await this.createAuditLog({
+      projectId: attachment.projectId,
+      entityType: 'attachment',
+      entityId: id,
+      action: 'Create',
+      performedBy: attachment.uploadedBy,
+      notes: `Uploaded file: ${attachment.fileName}`
+    });
+    
+    return newAttachment;
+  }
+
+  // Audit Logs
+  async getAuditLogs(projectId: string, entityId?: string, entityType?: string): Promise<AuditLog[]> {
+    let logs = Array.from(this.auditLogs.values())
+      .filter(log => log.projectId === projectId);
+    
+    if (entityId) {
+      logs = logs.filter(log => log.entityId === entityId);
+    }
+    
+    if (entityType) {
+      logs = logs.filter(log => log.entityType === entityType);
+    }
+    
+    return logs.sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime());
+  }
+
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const id = randomUUID();
+    const newLog: AuditLog = {
+      ...log,
+      id,
+      changes: log.changes ?? null,
+      ipAddress: log.ipAddress ?? null,
+      userAgent: log.userAgent ?? null,
+      notes: log.notes ?? null,
+      performedAt: new Date()
+    };
+    this.auditLogs.set(id, newLog);
+    return newLog;
+  }
+
+  // Project Members
+  async getProjectMembers(projectId: string): Promise<ProjectMember[]> {
+    return Array.from(this.projectMembers.values())
+      .filter(m => m.projectId === projectId && m.isActive);
+  }
+
+  async createProjectMember(member: InsertProjectMember): Promise<ProjectMember> {
+    const id = randomUUID();
+    const newMember: ProjectMember = {
+      ...member,
+      id,
+      email: member.email ?? null,
+      permissions: member.permissions ?? null,
+      lastActiveAt: member.lastActiveAt ?? null,
+      isActive: member.isActive ?? true,
+      joinedAt: new Date()
+    };
+    this.projectMembers.set(id, newMember);
+    
+    // Create audit log
+    await this.createAuditLog({
+      projectId: member.projectId,
+      entityType: 'projectMember',
+      entityId: id,
+      action: 'Create',
+      performedBy: 'System',
+      notes: `Added ${member.userName} as ${member.role}`
+    });
+    
+    return newMember;
+  }
+
+  async updateProjectMember(id: string, updates: Partial<ProjectMember>): Promise<ProjectMember | undefined> {
+    const member = this.projectMembers.get(id);
+    if (!member) return undefined;
+    
+    const oldRole = member.role;
+    Object.assign(member, updates, { lastActiveAt: new Date() });
+    this.projectMembers.set(id, member);
+    
+    // Create audit log
+    if (updates.role && updates.role !== oldRole) {
+      await this.createAuditLog({
+        projectId: member.projectId,
+        entityType: 'projectMember',
+        entityId: id,
+        action: 'Update',
+        performedBy: 'System',
+        notes: `Changed role from ${oldRole} to ${updates.role}`,
+        changes: { old: { role: oldRole }, new: { role: updates.role } }
+      });
+    }
+    
+    return member;
+  }
+
+  // Schedule Versions
+  async getScheduleVersions(projectId: string): Promise<ScheduleVersion[]> {
+    return Array.from(this.scheduleVersions.values())
+      .filter(v => v.projectId === projectId)
+      .sort((a, b) => b.versionNumber - a.versionNumber);
+  }
+
+  async createScheduleVersion(version: InsertScheduleVersion): Promise<ScheduleVersion> {
+    const id = randomUUID();
+    const newVersion: ScheduleVersion = {
+      ...version,
+      id,
+      versionName: version.versionName ?? null,
+      description: version.description ?? null,
+      isAutoSave: version.isAutoSave ?? false,
+      changesSummary: version.changesSummary ?? null,
+      createdAt: new Date()
+    };
+    this.scheduleVersions.set(id, newVersion);
+    
+    // Create audit log
+    await this.createAuditLog({
+      projectId: version.projectId,
+      entityType: 'scheduleVersion',
+      entityId: id,
+      action: 'Create',
+      performedBy: version.createdBy,
+      notes: `Created version ${version.versionNumber}: ${version.versionName || 'Auto-save'}`
+    });
+    
+    return newVersion;
+  }
+
+  async restoreScheduleVersion(versionId: string): Promise<boolean> {
+    const version = this.scheduleVersions.get(versionId);
+    if (!version) return false;
+    
+    // In a real implementation, this would restore the schedule from the snapshot
+    // For now, we'll just log the restoration
+    await this.createAuditLog({
+      projectId: version.projectId,
+      entityType: 'scheduleVersion',
+      entityId: versionId,
+      action: 'Update',
+      performedBy: 'System',
+      notes: `Restored schedule to version ${version.versionNumber}: ${version.versionName || 'Auto-save'}`
+    });
+    
+    return true;
   }
 }
 
