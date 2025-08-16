@@ -12,6 +12,7 @@ import {
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 import { generateScheduleWithAI, identifyScheduleImpacts } from "./scheduleAITools";
+import { parseScheduleFile } from "./scheduleParser";
 import type { Activity } from "../client/src/components/ScheduleEditor";
 
 export function registerScheduleRoutes(app: Express) {
@@ -37,7 +38,65 @@ export function registerScheduleRoutes(app: Express) {
     }
   });
 
-  // Upload and process schedule file
+  // Import schedule from XER, MPP, PDF, or XML
+  app.post("/api/projects/:projectId/schedules/import", async (req, res) => {
+    try {
+      const { fileContent, filename } = req.body;
+      
+      // Parse the schedule file
+      const parsedData = await parseScheduleFile(fileContent, filename);
+      
+      if (parsedData.activities.length === 0) {
+        return res.status(400).json({ error: "No activities found in the file" });
+      }
+      
+      // Create schedule record
+      const schedule = await dbStorage.db.insert(projectSchedules).values({
+        projectId: req.params.projectId,
+        scheduleType: "CPM",
+        dataDate: parsedData.projectInfo.dataDate || new Date().toISOString().split('T')[0],
+        startDate: parsedData.projectInfo.startDate || parsedData.activities[0]?.startDate || "",
+        finishDate: parsedData.projectInfo.finishDate || parsedData.activities[parsedData.activities.length - 1]?.finishDate || "",
+        fileUrl: filename,
+        version: 1,
+        notes: parsedData.summary
+      }).returning();
+      
+      // Store activities
+      const activityRecords = parsedData.activities.map((act: Activity) => ({
+        scheduleId: schedule[0].id,
+        activityId: act.activityId,
+        activityName: act.activityName,
+        activityType: "Task",
+        originalDuration: act.duration,
+        remainingDuration: act.duration * (1 - (act.percentComplete || 0) / 100),
+        startDate: act.startDate || "",
+        finishDate: act.finishDate || "",
+        totalFloat: act.totalFloat || 0,
+        status: act.status,
+        predecessors: Array.isArray(act.predecessors) ? act.predecessors.join(',') : '',
+        successors: Array.isArray(act.successors) ? act.successors.join(',') : '',
+        notes: act.wbs || null
+      }));
+      
+      if (activityRecords.length > 0) {
+        await dbStorage.db.insert(scheduleActivities).values(activityRecords);
+      }
+      
+      res.json({
+        success: true,
+        schedule: schedule[0],
+        activitiesCount: parsedData.activities.length,
+        projectInfo: parsedData.projectInfo,
+        summary: parsedData.summary
+      });
+    } catch (error) {
+      console.error("Error importing schedule:", error);
+      res.status(500).json({ error: "Failed to import schedule file" });
+    }
+  });
+  
+  // Upload and process schedule file (legacy route for backward compatibility)
   app.post("/api/projects/:projectId/schedules/upload", async (req, res) => {
     try {
       const { scheduleType, fileUrl, fileContent, dataDate } = req.body;
@@ -246,7 +305,7 @@ Format as JSON with:
         ]
       });
 
-      let suggestions = { updates: [], recommendations: [] };
+      let suggestions: { updates: any[], recommendations: string[] } = { updates: [], recommendations: [] };
       try {
         const content = updateResponse.choices[0].message.content || "{}";
         suggestions = JSON.parse(content);

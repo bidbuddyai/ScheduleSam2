@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Upload, FileText, RefreshCw, AlertCircle, Plus, Sparkles } from "lucide-react";
+import { Calendar, Upload, FileText, RefreshCw, AlertCircle, Plus, Sparkles, FileUp } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import InteractiveScheduleCreator from "./InteractiveScheduleCreator";
@@ -37,20 +37,27 @@ export default function ScheduleManager({ projectId, meetingId }: ScheduleManage
     enabled: !!selectedSchedule,
   });
   
-  // Upload schedule mutation
+  // Import schedule mutation
   const uploadScheduleMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", `/api/projects/${projectId}/schedules/upload`, data);
+      const endpoint = data.filename ? 
+        `/api/projects/${projectId}/schedules/import` : 
+        `/api/projects/${projectId}/schedules/upload`;
+      const response = await apiRequest("POST", endpoint, data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "schedules"] });
       setShowUploadDialog(false);
       setFileContent("");
+      setFilename("");
       toast({
-        title: "Schedule uploaded",
-        description: "The schedule has been processed successfully.",
+        title: "Schedule imported",
+        description: data.summary || `Successfully imported ${data.activitiesCount || 0} activities.`,
       });
+      if (data.schedule?.id) {
+        setSelectedSchedule(data.schedule.id);
+      }
     },
     onError: () => {
       toast({
@@ -95,33 +102,43 @@ export default function ScheduleManager({ projectId, meetingId }: ScheduleManage
     },
   });
   
+  const [filename, setFilename] = useState<string>("");
+  
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setFilename(file.name);
       const reader = new FileReader();
       reader.onload = (event) => {
         setFileContent(event.target?.result as string);
       };
-      reader.readAsText(file);
+      // For binary files like MPP, read as text with fallback encoding
+      if (file.name.toLowerCase().endsWith('.mpp')) {
+        reader.readAsText(file, 'latin1');
+      } else {
+        reader.readAsText(file);
+      }
     }
   };
   
-  const handleScheduleUpload = () => {
-    if (!fileContent) {
+  const handleScheduleImport = () => {
+    if (!fileContent || !filename) {
       toast({
         title: "No file selected",
-        description: "Please select a schedule file to upload.",
+        description: "Please select a schedule file to import.",
         variant: "destructive",
       });
       return;
     }
     
+    // Use the import endpoint for P6/MSP files
     uploadScheduleMutation.mutate({
-      scheduleType: uploadType,
       fileContent,
-      dataDate: new Date().toISOString().split('T')[0]
+      filename
     });
   };
+  
+  const handleScheduleUpload = handleScheduleImport; // For backward compatibility
   
   const cpmSchedules = schedules.filter(s => s.scheduleType === "CPM");
   const lookaheadSchedules = schedules.filter(s => s.scheduleType === "3_WEEK_LOOKAHEAD");
@@ -171,34 +188,31 @@ export default function ScheduleManager({ projectId, meetingId }: ScheduleManage
               </Dialog>
               <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
                 <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Schedule
+                  <Button size="sm" variant="outline">
+                    <FileUp className="h-4 w-4 mr-2" />
+                    Import P6/MSP
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-lg">
                   <DialogHeader>
-                    <DialogTitle>Upload Schedule File</DialogTitle>
+                    <DialogTitle>Import Schedule File</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="schedule-type">Schedule Type</Label>
-                      <Select value={uploadType} onValueChange={(v) => setUploadType(v as any)}>
-                        <SelectTrigger id="schedule-type">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CPM">CPM Schedule</SelectItem>
-                          <SelectItem value="3_WEEK_LOOKAHEAD">3-Week Lookahead</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium mb-2">Supported Formats:</h4>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        <li>• <strong>XER</strong> - Primavera P6 native format</li>
+                        <li>• <strong>XML/MSPDI</strong> - MS Project XML format</li>
+                        <li>• <strong>MPP</strong> - MS Project native format</li>
+                        <li>• <strong>PDF</strong> - Schedule reports from P6/MSP</li>
+                      </ul>
                     </div>
                     <div>
-                      <Label htmlFor="schedule-file">Schedule File</Label>
+                      <Label htmlFor="schedule-file">Select Schedule File</Label>
                       <input
                         id="schedule-file"
                         type="file"
-                        accept=".csv,.txt,.pdf"
+                        accept=".xer,.xml,.mspdi,.mpx,.mpp,.pdf"
                         onChange={handleFileUpload}
                         className="block w-full text-sm text-gray-500
                           file:mr-4 file:py-2 file:px-4
@@ -208,12 +222,27 @@ export default function ScheduleManager({ projectId, meetingId }: ScheduleManage
                           hover:file:bg-brand-secondary"
                       />
                     </div>
+                    {fileContent && (
+                      <div className="text-sm text-gray-600">
+                        File loaded: {fileContent.length.toLocaleString()} characters
+                      </div>
+                    )}
                     <Button 
-                      onClick={handleScheduleUpload}
+                      onClick={handleScheduleImport}
                       disabled={!fileContent || uploadScheduleMutation.isPending}
                       className="w-full"
                     >
-                      {uploadScheduleMutation.isPending ? "Processing..." : "Upload & Process"}
+                      {uploadScheduleMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Importing Schedule...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Import Schedule
+                        </>
+                      )}
                     </Button>
                   </div>
                 </DialogContent>
