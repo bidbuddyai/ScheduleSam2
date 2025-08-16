@@ -1,11 +1,13 @@
 import { randomUUID } from "crypto";
 import type {
-  Project, InsertProject, Meeting, InsertMeeting, Attendance, InsertAttendance,
-  AgendaItem, InsertAgendaItem, ActionItem, InsertActionItem, OpenItem, InsertOpenItem,
-  Rfi, InsertRfi, Submittal, InsertSubmittal, Fabrication, InsertFabrication,
-  Distribution, InsertDistribution, File, InsertFile, User, InsertUser,
-  ProjectSchedule, InsertProjectSchedule, ScheduleActivity, InsertScheduleActivity,
-  ScheduleUpdate, InsertScheduleUpdate
+  Project, InsertProject, Activity, InsertActivity, Wbs, InsertWbs,
+  Calendar, InsertCalendar, Relationship, InsertRelationship,
+  Resource, InsertResource, ResourceAssignment, InsertResourceAssignment,
+  Baseline, InsertBaseline, TiaScenario, InsertTiaScenario,
+  TiaFragnet, InsertTiaFragnet, TiaDelay, InsertTiaDelay,
+  TiaResult, InsertTiaResult, ScheduleUpdate, InsertScheduleUpdate,
+  ImportExportHistory, InsertImportExportHistory, AiContext, InsertAiContext,
+  ActivityCode, InsertActivityCode
 } from "@shared/schema";
 
 export interface IStorage {
@@ -13,175 +15,278 @@ export interface IStorage {
   getProjects(): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
+  updateProject(id: string, updates: Partial<Project>): Promise<Project | undefined>;
+  deleteProject(id: string): Promise<boolean>;
   
-  // Meetings
-  getMeetingsByProject(projectId: string): Promise<Meeting[]>;
-  getMeeting(id: string): Promise<Meeting | undefined>;
-  createMeeting(meeting: InsertMeeting): Promise<Meeting>;
+  // WBS
+  getWbsByProject(projectId: string): Promise<Wbs[]>;
+  getWbs(id: string): Promise<Wbs | undefined>;
+  createWbs(wbs: InsertWbs): Promise<Wbs>;
+  updateWbs(id: string, updates: Partial<Wbs>): Promise<Wbs | undefined>;
+  deleteWbs(id: string): Promise<boolean>;
   
-  // Attendance
-  getAttendanceByMeeting(meetingId: string): Promise<Attendance[]>;
-  createAttendance(attendance: InsertAttendance): Promise<Attendance>;
-  updateAttendance(id: string, updates: Partial<Attendance>): Promise<Attendance | undefined>;
+  // Activities
+  getActivitiesByProject(projectId: string): Promise<Activity[]>;
+  getActivity(id: string): Promise<Activity | undefined>;
+  createActivity(activity: InsertActivity): Promise<Activity>;
+  updateActivity(id: string, updates: Partial<Activity>): Promise<Activity | undefined>;
+  deleteActivity(id: string): Promise<boolean>;
+  bulkUpdateActivities(updates: { id: string; updates: Partial<Activity> }[]): Promise<void>;
   
-  // Agenda Items
-  getAgendaItemsByMeeting(meetingId: string): Promise<AgendaItem[]>;
-  createAgendaItem(item: InsertAgendaItem): Promise<AgendaItem>;
-  updateAgendaItem(id: string, updates: Partial<AgendaItem>): Promise<AgendaItem | undefined>;
+  // Relationships
+  getRelationshipsByProject(projectId: string): Promise<Relationship[]>;
+  getRelationshipsForActivity(activityId: string): Promise<{
+    predecessors: Relationship[];
+    successors: Relationship[];
+  }>;
+  createRelationship(relationship: InsertRelationship): Promise<Relationship>;
+  updateRelationship(id: string, updates: Partial<Relationship>): Promise<Relationship | undefined>;
+  deleteRelationship(id: string): Promise<boolean>;
   
-  // Action Items
-  getActionItemsByMeeting(meetingId: string): Promise<ActionItem[]>;
-  createActionItem(item: InsertActionItem): Promise<ActionItem>;
-  updateActionItem(id: string, updates: Partial<ActionItem>): Promise<ActionItem | undefined>;
-  deleteActionItem(id: string): Promise<boolean>;
+  // Calendars
+  getCalendarsByProject(projectId: string | null): Promise<Calendar[]>;
+  getCalendar(id: string): Promise<Calendar | undefined>;
+  createCalendar(calendar: InsertCalendar): Promise<Calendar>;
+  updateCalendar(id: string, updates: Partial<Calendar>): Promise<Calendar | undefined>;
+  deleteCalendar(id: string): Promise<boolean>;
   
-  // Open Items
-  getOpenItemsByProject(projectId: string): Promise<OpenItem[]>;
-  createOpenItem(item: InsertOpenItem): Promise<OpenItem>;
-  updateOpenItem(id: string, updates: Partial<OpenItem>): Promise<OpenItem | undefined>;
+  // Resources
+  getResourcesByProject(projectId: string): Promise<Resource[]>;
+  getResource(id: string): Promise<Resource | undefined>;
+  createResource(resource: InsertResource): Promise<Resource>;
+  updateResource(id: string, updates: Partial<Resource>): Promise<Resource | undefined>;
+  deleteResource(id: string): Promise<boolean>;
   
-  // RFIs
-  getRfisByMeeting(meetingId: string): Promise<Rfi[]>;
-  createRfi(rfi: InsertRfi): Promise<Rfi>;
-  updateRfi(id: string, updates: Partial<Rfi>): Promise<Rfi | undefined>;
+  // Resource Assignments
+  getAssignmentsByActivity(activityId: string): Promise<ResourceAssignment[]>;
+  getAssignmentsByResource(resourceId: string): Promise<ResourceAssignment[]>;
+  createAssignment(assignment: InsertResourceAssignment): Promise<ResourceAssignment>;
+  updateAssignment(id: string, updates: Partial<ResourceAssignment>): Promise<ResourceAssignment | undefined>;
+  deleteAssignment(id: string): Promise<boolean>;
   
-  // Submittals
-  getSubmittalsByMeeting(meetingId: string): Promise<Submittal[]>;
-  createSubmittal(submittal: InsertSubmittal): Promise<Submittal>;
-  updateSubmittal(id: string, updates: Partial<Submittal>): Promise<Submittal | undefined>;
+  // Baselines
+  getBaselinesByProject(projectId: string): Promise<Baseline[]>;
+  getBaseline(id: string): Promise<Baseline | undefined>;
+  createBaseline(baseline: InsertBaseline): Promise<Baseline>;
+  setActiveBaseline(projectId: string, baselineId: string): Promise<void>;
+  deleteBaseline(id: string): Promise<boolean>;
   
-  // Fabrication
-  getFabricationByMeeting(meetingId: string): Promise<Fabrication[]>;
-  createFabrication(fabrication: InsertFabrication): Promise<Fabrication>;
-  updateFabrication(id: string, updates: Partial<Fabrication>): Promise<Fabrication | undefined>;
-  
-  // Distribution
-  getDistributionByMeeting(meetingId: string): Promise<Distribution[]>;
-  createDistribution(distribution: InsertDistribution): Promise<Distribution>;
-  updateDistribution(id: string, updates: Partial<Distribution>): Promise<Distribution | undefined>;
-  
-  // Files
-  getFilesByMeeting(meetingId: string): Promise<File[]>;
-  createFile(file: InsertFile): Promise<File>;
-  
-  // Users
-  getUser(id: string): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  
-  // Project Schedules
-  getSchedulesByProject(projectId: string): Promise<ProjectSchedule[]>;
-  getSchedule(id: string): Promise<ProjectSchedule | undefined>;
-  createSchedule(schedule: InsertProjectSchedule): Promise<ProjectSchedule>;
-  updateSchedule(id: string, updates: Partial<ProjectSchedule>): Promise<ProjectSchedule | undefined>;
-  deleteSchedule(id: string): Promise<boolean>;
-  
-  // Schedule Activities
-  getActivitiesBySchedule(scheduleId: string): Promise<ScheduleActivity[]>;
-  createScheduleActivity(activity: InsertScheduleActivity): Promise<ScheduleActivity>;
-  updateScheduleActivity(id: string, updates: Partial<ScheduleActivity>): Promise<ScheduleActivity | undefined>;
-  deleteScheduleActivities(scheduleId: string): Promise<boolean>;
+  // TIA Scenarios
+  getTiaScenariosByProject(projectId: string): Promise<TiaScenario[]>;
+  getTiaScenario(id: string): Promise<TiaScenario | undefined>;
+  createTiaScenario(scenario: InsertTiaScenario): Promise<TiaScenario>;
+  updateTiaScenario(id: string, updates: Partial<TiaScenario>): Promise<TiaScenario | undefined>;
+  deleteTiaScenario(id: string): Promise<boolean>;
   
   // Schedule Updates
-  getScheduleUpdates(scheduleId: string): Promise<ScheduleUpdate[]>;
+  getScheduleUpdatesByProject(projectId: string): Promise<ScheduleUpdate[]>;
+  getScheduleUpdate(id: string): Promise<ScheduleUpdate | undefined>;
   createScheduleUpdate(update: InsertScheduleUpdate): Promise<ScheduleUpdate>;
 }
 
 export class MemStorage implements IStorage {
   private projects = new Map<string, Project>();
-  private meetings = new Map<string, Meeting>();
-  private attendance = new Map<string, Attendance>();
-  private agendaItems = new Map<string, AgendaItem>();
-  private actionItems = new Map<string, ActionItem>();
-  private openItems = new Map<string, OpenItem>();
-  private rfis = new Map<string, Rfi>();
-  private submittals = new Map<string, Submittal>();
-  private fabrication = new Map<string, Fabrication>();
-  private distribution = new Map<string, Distribution>();
-  private files = new Map<string, File>();
-  private users = new Map<string, User>();
-  private schedules = new Map<string, ProjectSchedule>();
-  private scheduleActivities = new Map<string, ScheduleActivity>();
+  private wbs = new Map<string, Wbs>();
+  private activities = new Map<string, Activity>();
+  private relationships = new Map<string, Relationship>();
+  private calendars = new Map<string, Calendar>();
+  private resources = new Map<string, Resource>();
+  private resourceAssignments = new Map<string, ResourceAssignment>();
+  private baselines = new Map<string, Baseline>();
+  private tiaScenarios = new Map<string, TiaScenario>();
+  private tiaFragnets = new Map<string, TiaFragnet>();
+  private tiaDelays = new Map<string, TiaDelay>();
+  private tiaResults = new Map<string, TiaResult>();
   private scheduleUpdates = new Map<string, ScheduleUpdate>();
+  private importExportHistory = new Map<string, ImportExportHistory>();
+  private aiContext = new Map<string, AiContext>();
+  private activityCodes = new Map<string, ActivityCode>();
 
   constructor() {
     this.seedData();
   }
 
   private seedData() {
-    // Add a sample project
+    // Add a sample demolition project
     const project: Project = {
       id: "project-1",
       name: "5-Story Office Building Demolition",
-      colorPrimary: "#03512A",
-      colorSecondary: "#1C7850",
-      createdAt: new Date()
+      description: "Complete demolition of existing office structure including abatement and site clearing",
+      contractStartDate: "2024-01-15",
+      contractFinishDate: "2024-06-30",
+      dataDate: "2024-02-01",
+      colorPrimary: "#10b981",
+      colorSecondary: "#059669",
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     this.projects.set(project.id, project);
     
-    // Add a sample meeting
-    const meeting: Meeting = {
-      id: "meeting-1",
-      projectId: "project-1",
-      seqNum: 1,
-      date: "2025-01-15",
-      time: "09:00 AM",
-      location: "Project Site",
-      preparedBy: "Project Manager",
-      createdAt: new Date()
+    // Create default calendar
+    const calendar: Calendar = {
+      id: "cal-1",
+      projectId: project.id,
+      name: "Standard 5-Day",
+      type: "Project",
+      standardWorkweek: {
+        monday: { working: true, hours: [8, 17] },
+        tuesday: { working: true, hours: [8, 17] },
+        wednesday: { working: true, hours: [8, 17] },
+        thursday: { working: true, hours: [8, 17] },
+        friday: { working: true, hours: [8, 17] },
+        saturday: { working: false },
+        sunday: { working: false }
+      },
+      holidays: ["2024-01-01", "2024-07-04", "2024-12-25"],
+      exceptions: null
     };
-    this.meetings.set(meeting.id, meeting);
-    
-    // Add sample agenda items
-    const agendaTopics = [
-      "Welcome & Introductions",
-      "Site Safety",
-      "Project Schedule",
-      "Ongoing Project Details",
-      "Open Discussion",
-      "Action Items & Next Steps"
+    this.calendars.set(calendar.id, calendar);
+
+    // Create WBS structure
+    const wbsItems = [
+      { id: "wbs-1", parentId: null, code: "1", name: "Demolition Project", level: 1, sequenceNumber: 1 },
+      { id: "wbs-2", parentId: "wbs-1", code: "1.1", name: "Mobilization", level: 2, sequenceNumber: 1 },
+      { id: "wbs-3", parentId: "wbs-1", code: "1.2", name: "Abatement", level: 2, sequenceNumber: 2 },
+      { id: "wbs-4", parentId: "wbs-1", code: "1.3", name: "Structural Demolition", level: 2, sequenceNumber: 3 },
+      { id: "wbs-5", parentId: "wbs-1", code: "1.4", name: "Site Clearing", level: 2, sequenceNumber: 4 }
     ];
     
-    agendaTopics.forEach((topic, index) => {
-      const agendaItem: AgendaItem = {
-        id: `agenda-${index + 1}`,
-        meetingId: "meeting-1",
-        topicOrder: index + 1,
-        title: topic,
-        discussion: "Discussion notes for " + topic,
-        decision: ""
+    wbsItems.forEach(item => {
+      const wbs: Wbs = {
+        ...item,
+        projectId: project.id,
+        rollupSettings: null
       };
-      this.agendaItems.set(agendaItem.id, agendaItem);
+      this.wbs.set(wbs.id, wbs);
     });
-    
-    // Add sample action items
-    const actionItem1: ActionItem = {
-      id: "action-1",
-      meetingId: "meeting-1",
-      agendaItemId: null,
-      action: "Complete utility disconnection permits",
-      owner: "John Smith",
-      ballInCourt: "John Smith",
-      dueDate: "2025-01-20",
-      status: "Open",
-      notes: "Critical for project start",
-      sourceMeetingId: null
-    };
-    this.actionItems.set(actionItem1.id, actionItem1);
-    
-    const actionItem2: ActionItem = {
-      id: "action-2",
-      meetingId: "meeting-1",
-      agendaItemId: null,
-      action: "Schedule asbestos survey with certified contractor",
-      owner: "Jane Doe",
-      ballInCourt: "Jane Doe",
-      dueDate: "2025-01-22",
-      status: "Open",
-      notes: "Required before abatement can begin",
-      sourceMeetingId: null
-    };
-    this.actionItems.set(actionItem2.id, actionItem2);
+
+    // Create sample activities
+    const activities = [
+      { 
+        id: "act-1", 
+        activityId: "A1000", 
+        name: "Mobilize Equipment", 
+        wbsId: "wbs-2",
+        originalDuration: 3,
+        remainingDuration: 3,
+        earlyStart: "2024-01-15",
+        earlyFinish: "2024-01-17",
+        trade: "General"
+      },
+      { 
+        id: "act-2", 
+        activityId: "A1010", 
+        name: "Site Setup & Safety", 
+        wbsId: "wbs-2",
+        originalDuration: 2,
+        remainingDuration: 2,
+        earlyStart: "2024-01-18",
+        earlyFinish: "2024-01-19",
+        trade: "Safety"
+      },
+      { 
+        id: "act-3", 
+        activityId: "A2000", 
+        name: "Asbestos Survey", 
+        wbsId: "wbs-3",
+        originalDuration: 5,
+        remainingDuration: 5,
+        earlyStart: "2024-01-22",
+        earlyFinish: "2024-01-26",
+        trade: "Abatement"
+      },
+      { 
+        id: "act-4", 
+        activityId: "A2010", 
+        name: "Asbestos Removal - Floor 5", 
+        wbsId: "wbs-3",
+        originalDuration: 10,
+        remainingDuration: 10,
+        earlyStart: "2024-01-29",
+        earlyFinish: "2024-02-09",
+        trade: "Abatement"
+      },
+      { 
+        id: "act-5", 
+        activityId: "A3000", 
+        name: "Soft Strip - Interior", 
+        wbsId: "wbs-4",
+        originalDuration: 15,
+        remainingDuration: 15,
+        earlyStart: "2024-02-12",
+        earlyFinish: "2024-03-01",
+        trade: "Demolition"
+      },
+      { 
+        id: "act-6", 
+        activityId: "A3010", 
+        name: "Structural Demo - Roof", 
+        wbsId: "wbs-4",
+        originalDuration: 8,
+        remainingDuration: 8,
+        earlyStart: "2024-03-04",
+        earlyFinish: "2024-03-13",
+        trade: "Demolition",
+        isCritical: true
+      }
+    ];
+
+    activities.forEach(act => {
+      const activity: Activity = {
+        ...act,
+        projectId: project.id,
+        type: "Task",
+        durationUnit: "days",
+        lateStart: act.earlyStart,
+        lateFinish: act.earlyFinish,
+        actualStart: null,
+        actualFinish: null,
+        baselineStart: act.earlyStart,
+        baselineFinish: act.earlyFinish,
+        totalFloat: 0,
+        freeFloat: 0,
+        isCritical: act.isCritical || false,
+        criticalityIndex: null,
+        percentComplete: 0,
+        physicalPercentComplete: null,
+        status: "NotStarted",
+        calendarId: calendar.id,
+        constraintType: null,
+        constraintDate: null,
+        deadline: null,
+        activityCodes: null,
+        customFields: null,
+        budgetedCost: null,
+        actualCost: null,
+        earnedValue: null,
+        notes: null,
+        responsibility: "Adams & Grand",
+        location: "Main Building",
+        actualDuration: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      this.activities.set(activity.id, activity);
+    });
+
+    // Create relationships
+    const relationships = [
+      { predecessorId: "act-1", successorId: "act-2", type: "FS" as const, lag: 0 },
+      { predecessorId: "act-2", successorId: "act-3", type: "FS" as const, lag: 0 },
+      { predecessorId: "act-3", successorId: "act-4", type: "FS" as const, lag: 0 },
+      { predecessorId: "act-4", successorId: "act-5", type: "FS" as const, lag: 0 },
+      { predecessorId: "act-5", successorId: "act-6", type: "FS" as const, lag: 0 }
+    ];
+
+    relationships.forEach((rel, index) => {
+      const relationship: Relationship = {
+        id: `rel-${index + 1}`,
+        projectId: project.id,
+        ...rel,
+        lagUnit: "days"
+      };
+      this.relationships.set(relationship.id, relationship);
+    });
   }
 
   // Projects
@@ -195,400 +300,386 @@ export class MemStorage implements IStorage {
 
   async createProject(insertProject: InsertProject): Promise<Project> {
     const id = randomUUID();
-    const project: Project = { 
-      ...insertProject, 
-      id, 
+    const project: Project = {
+      ...insertProject,
+      id,
+      description: insertProject.description ?? null,
+      contractStartDate: insertProject.contractStartDate ?? null,
+      contractFinishDate: insertProject.contractFinishDate ?? null,
+      dataDate: insertProject.dataDate ?? null,
       createdAt: new Date(),
-      colorPrimary: insertProject.colorPrimary || "#03512A",
-      colorSecondary: insertProject.colorSecondary || "#1C7850"
+      updatedAt: new Date()
     };
     this.projects.set(id, project);
     return project;
   }
 
-  // Meetings
-  async getMeetingsByProject(projectId: string): Promise<Meeting[]> {
-    return Array.from(this.meetings.values()).filter(m => m.projectId === projectId);
-  }
-
-  async getMeeting(id: string): Promise<Meeting | undefined> {
-    return this.meetings.get(id);
-  }
-
-  async createMeeting(insertMeeting: InsertMeeting): Promise<Meeting> {
-    const id = randomUUID();
-    const meeting: Meeting = { ...insertMeeting, id, createdAt: new Date() };
-    this.meetings.set(id, meeting);
-    return meeting;
-  }
-
-  // Attendance
-  async getAttendanceByMeeting(meetingId: string): Promise<Attendance[]> {
-    return Array.from(this.attendance.values()).filter(a => a.meetingId === meetingId);
-  }
-
-  async createAttendance(insertAttendance: InsertAttendance): Promise<Attendance> {
-    const id = randomUUID();
-    const attendance: Attendance = { 
-      ...insertAttendance, 
-      id,
-      presentBool: insertAttendance.presentBool ?? false
-    };
-    this.attendance.set(id, attendance);
-    return attendance;
-  }
-
-  async updateAttendance(id: string, updates: Partial<Attendance>): Promise<Attendance | undefined> {
-    const existing = this.attendance.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...updates };
-    this.attendance.set(id, updated);
-    return updated;
-  }
-
-  // Agenda Items
-  async getAgendaItemsByMeeting(meetingId: string): Promise<AgendaItem[]> {
-    return Array.from(this.agendaItems.values())
-      .filter(a => a.meetingId === meetingId)
-      .sort((a, b) => a.topicOrder - b.topicOrder);
-  }
-
-  async createAgendaItem(insertItem: InsertAgendaItem): Promise<AgendaItem> {
-    const id = randomUUID();
-    const item: AgendaItem = { 
-      ...insertItem, 
-      id,
-      discussion: insertItem.discussion ?? null,
-      decision: insertItem.decision ?? null
-    };
-    this.agendaItems.set(id, item);
-    return item;
-  }
-
-  async updateAgendaItem(id: string, updates: Partial<AgendaItem>): Promise<AgendaItem | undefined> {
-    const existing = this.agendaItems.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...updates };
-    this.agendaItems.set(id, updated);
-    return updated;
-  }
-
-  // Action Items
-  async getActionItemsByMeeting(meetingId: string): Promise<ActionItem[]> {
-    return Array.from(this.actionItems.values()).filter(a => a.meetingId === meetingId);
-  }
-
-  async createActionItem(insertItem: InsertActionItem): Promise<ActionItem> {
-    const id = randomUUID();
-    const item: ActionItem = { 
-      ...insertItem, 
-      id,
-      status: insertItem.status || "Open",
-      agendaItemId: insertItem.agendaItemId ?? null,
-      dueDate: insertItem.dueDate ?? null,
-      notes: insertItem.notes ?? null,
-      sourceMeetingId: insertItem.sourceMeetingId ?? null
-    };
-    this.actionItems.set(id, item);
-    return item;
-  }
-
-  async updateActionItem(id: string, updates: Partial<ActionItem>): Promise<ActionItem | undefined> {
-    const existing = this.actionItems.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...updates };
-    this.actionItems.set(id, updated);
-    return updated;
-  }
-
-  async deleteActionItem(id: string): Promise<boolean> {
-    return this.actionItems.delete(id);
-  }
-
-  // Open Items
-  async getOpenItemsByProject(projectId: string): Promise<OpenItem[]> {
-    return Array.from(this.openItems.values()).filter(o => o.projectId === projectId);
-  }
-
-  async createOpenItem(insertItem: InsertOpenItem): Promise<OpenItem> {
-    const id = randomUUID();
-    const item: OpenItem = { 
-      ...insertItem, 
-      id,
-      status: insertItem.status || "Open",
-      notes: insertItem.notes ?? null,
-      targetClose: insertItem.targetClose ?? null
-    };
-    this.openItems.set(id, item);
-    return item;
-  }
-
-  async updateOpenItem(id: string, updates: Partial<OpenItem>): Promise<OpenItem | undefined> {
-    const existing = this.openItems.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...updates };
-    this.openItems.set(id, updated);
-    return updated;
-  }
-
-  // RFIs
-  async getRfisByMeeting(meetingId: string): Promise<Rfi[]> {
-    return Array.from(this.rfis.values()).filter(r => r.meetingId === meetingId);
-  }
-
-  async createRfi(insertRfi: InsertRfi): Promise<Rfi> {
-    const id = randomUUID();
-    const rfi: Rfi = { 
-      ...insertRfi, 
-      id,
-      submittedDate: insertRfi.submittedDate ?? null,
-      responseDue: insertRfi.responseDue ?? null,
-      impact: insertRfi.impact ?? null,
-      notes: insertRfi.notes ?? null
-    };
-    this.rfis.set(id, rfi);
-    return rfi;
-  }
-
-  async updateRfi(id: string, updates: Partial<Rfi>): Promise<Rfi | undefined> {
-    const existing = this.rfis.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...updates };
-    this.rfis.set(id, updated);
-    return updated;
-  }
-
-  // Submittals
-  async getSubmittalsByMeeting(meetingId: string): Promise<Submittal[]> {
-    return Array.from(this.submittals.values()).filter(s => s.meetingId === meetingId);
-  }
-
-  async createSubmittal(insertSubmittal: InsertSubmittal): Promise<Submittal> {
-    const id = randomUUID();
-    const submittal: Submittal = { 
-      ...insertSubmittal, 
-      id,
-      specSection: insertSubmittal.specSection ?? null,
-      requiredDate: insertSubmittal.requiredDate ?? null,
-      submittedDate: insertSubmittal.submittedDate ?? null,
-      resubmittalNeededBool: insertSubmittal.resubmittalNeededBool ?? false
-    };
-    this.submittals.set(id, submittal);
-    return submittal;
-  }
-
-  async updateSubmittal(id: string, updates: Partial<Submittal>): Promise<Submittal | undefined> {
-    const existing = this.submittals.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...updates };
-    this.submittals.set(id, updated);
-    return updated;
-  }
-
-  // Fabrication
-  async getFabricationByMeeting(meetingId: string): Promise<Fabrication[]> {
-    return Array.from(this.fabrication.values()).filter(f => f.meetingId === meetingId);
-  }
-
-  async createFabrication(insertFabrication: InsertFabrication): Promise<Fabrication> {
-    const id = randomUUID();
-    const fabrication: Fabrication = { 
-      ...insertFabrication, 
-      id,
-      fabStart: insertFabrication.fabStart ?? null,
-      fabFinish: insertFabrication.fabFinish ?? null,
-      shipDate: insertFabrication.shipDate ?? null,
-      needBy: insertFabrication.needBy ?? null,
-      risks: insertFabrication.risks ?? null
-    };
-    this.fabrication.set(id, fabrication);
-    return fabrication;
-  }
-
-  async updateFabrication(id: string, updates: Partial<Fabrication>): Promise<Fabrication | undefined> {
-    const existing = this.fabrication.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...updates };
-    this.fabrication.set(id, updated);
-    return updated;
-  }
-
-  // Distribution
-  async getDistributionByMeeting(meetingId: string): Promise<Distribution[]> {
-    return Array.from(this.distribution.values()).filter(d => d.meetingId === meetingId);
-  }
-
-  async createDistribution(insertDistribution: InsertDistribution): Promise<Distribution> {
-    const id = randomUUID();
-    const distribution: Distribution = { 
-      ...insertDistribution, 
-      id,
-      sentBool: insertDistribution.sentBool ?? false
-    };
-    this.distribution.set(id, distribution);
-    return distribution;
-  }
-
-  async updateDistribution(id: string, updates: Partial<Distribution>): Promise<Distribution | undefined> {
-    const existing = this.distribution.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...updates };
-    this.distribution.set(id, updated);
-    return updated;
-  }
-
-  // Files
-  async getFilesByMeeting(meetingId: string): Promise<File[]> {
-    return Array.from(this.files.values()).filter(f => f.meetingId === meetingId);
-  }
-
-  async createFile(insertFile: InsertFile): Promise<File> {
-    const id = randomUUID();
-    const file: File = { 
-      ...insertFile, 
-      id, 
-      createdAt: new Date(),
-      transcription: insertFile.transcription ?? null
-    };
-    this.files.set(id, file);
-    return file;
-  }
-
-  // Users
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { 
-      ...insertUser, 
-      id,
-      role: insertUser.role || "Standard"
-    };
-    this.users.set(id, user);
-    return user;
-  }
-  
-  // Project Schedules
-  async getSchedulesByProject(projectId: string): Promise<ProjectSchedule[]> {
-    return Array.from(this.schedules.values())
-      .filter(s => s.projectId === projectId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }
-  
-  async getSchedule(id: string): Promise<ProjectSchedule | undefined> {
-    return this.schedules.get(id);
-  }
-  
-  async createSchedule(insertSchedule: InsertProjectSchedule): Promise<ProjectSchedule> {
-    const id = randomUUID();
-    const schedule: ProjectSchedule = {
-      ...insertSchedule,
-      id,
-      version: insertSchedule.version || 1,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      fileUrl: insertSchedule.fileUrl ?? null,
-      notes: insertSchedule.notes ?? null
-    };
-    this.schedules.set(id, schedule);
-    return schedule;
-  }
-  
-  async updateSchedule(id: string, updates: Partial<ProjectSchedule>): Promise<ProjectSchedule | undefined> {
-    const existing = this.schedules.get(id);
+  async updateProject(id: string, updates: Partial<Project>): Promise<Project | undefined> {
+    const existing = this.projects.get(id);
     if (!existing) return undefined;
     const updated = { ...existing, ...updates, updatedAt: new Date() };
-    this.schedules.set(id, updated);
+    this.projects.set(id, updated);
     return updated;
   }
-  
-  async deleteSchedule(id: string): Promise<boolean> {
-    // Delete associated activities first
-    const activities = await this.getActivitiesBySchedule(id);
-    activities.forEach(activity => {
-      this.scheduleActivities.delete(activity.id);
-    });
-    return this.schedules.delete(id);
+
+  async deleteProject(id: string): Promise<boolean> {
+    return this.projects.delete(id);
   }
-  
-  // Schedule Activities
-  async getActivitiesBySchedule(scheduleId: string): Promise<ScheduleActivity[]> {
-    return Array.from(this.scheduleActivities.values())
-      .filter(a => a.scheduleId === scheduleId);
+
+  // WBS
+  async getWbsByProject(projectId: string): Promise<Wbs[]> {
+    return Array.from(this.wbs.values()).filter(w => w.projectId === projectId);
   }
-  
-  async createScheduleActivity(insertActivity: InsertScheduleActivity): Promise<ScheduleActivity> {
+
+  async getWbs(id: string): Promise<Wbs | undefined> {
+    return this.wbs.get(id);
+  }
+
+  async createWbs(insertWbs: InsertWbs): Promise<Wbs> {
     const id = randomUUID();
-    const activity: ScheduleActivity = {
-      ...insertActivity,
+    const wbs: Wbs = {
+      ...insertWbs,
       id,
-      activityType: insertActivity.activityType ?? null,
-      originalDuration: insertActivity.originalDuration ?? null,
-      remainingDuration: insertActivity.remainingDuration ?? null,
-      startDate: insertActivity.startDate ?? null,
-      finishDate: insertActivity.finishDate ?? null,
-      totalFloat: insertActivity.totalFloat ?? null,
-      status: insertActivity.status ?? null,
-      predecessors: insertActivity.predecessors ?? null,
-      successors: insertActivity.successors ?? null,
-      notes: insertActivity.notes ?? null
+      parentId: insertWbs.parentId ?? null,
+      rollupSettings: insertWbs.rollupSettings ?? null
     };
-    this.scheduleActivities.set(id, activity);
-    return activity;
+    this.wbs.set(id, wbs);
+    return wbs;
   }
-  
-  async updateScheduleActivity(id: string, updates: Partial<ScheduleActivity>): Promise<ScheduleActivity | undefined> {
-    const existing = this.scheduleActivities.get(id);
+
+  async updateWbs(id: string, updates: Partial<Wbs>): Promise<Wbs | undefined> {
+    const existing = this.wbs.get(id);
     if (!existing) return undefined;
     const updated = { ...existing, ...updates };
-    this.scheduleActivities.set(id, updated);
+    this.wbs.set(id, updated);
     return updated;
   }
-  
-  async deleteScheduleActivities(scheduleId: string): Promise<boolean> {
-    const activities = await this.getActivitiesBySchedule(scheduleId);
-    activities.forEach(activity => {
-      this.scheduleActivities.delete(activity.id);
+
+  async deleteWbs(id: string): Promise<boolean> {
+    return this.wbs.delete(id);
+  }
+
+  // Activities
+  async getActivitiesByProject(projectId: string): Promise<Activity[]> {
+    return Array.from(this.activities.values()).filter(a => a.projectId === projectId);
+  }
+
+  async getActivity(id: string): Promise<Activity | undefined> {
+    return this.activities.get(id);
+  }
+
+  async createActivity(insertActivity: InsertActivity): Promise<Activity> {
+    const id = randomUUID();
+    const activity: Activity = {
+      ...insertActivity,
+      id,
+      wbsId: insertActivity.wbsId ?? null,
+      originalDuration: insertActivity.originalDuration ?? null,
+      remainingDuration: insertActivity.remainingDuration ?? null,
+      actualDuration: insertActivity.actualDuration ?? null,
+      earlyStart: insertActivity.earlyStart ?? null,
+      earlyFinish: insertActivity.earlyFinish ?? null,
+      lateStart: insertActivity.lateStart ?? null,
+      lateFinish: insertActivity.lateFinish ?? null,
+      actualStart: insertActivity.actualStart ?? null,
+      actualFinish: insertActivity.actualFinish ?? null,
+      baselineStart: insertActivity.baselineStart ?? null,
+      baselineFinish: insertActivity.baselineFinish ?? null,
+      totalFloat: insertActivity.totalFloat ?? null,
+      freeFloat: insertActivity.freeFloat ?? null,
+      criticalityIndex: insertActivity.criticalityIndex ?? null,
+      physicalPercentComplete: insertActivity.physicalPercentComplete ?? null,
+      calendarId: insertActivity.calendarId ?? null,
+      constraintType: insertActivity.constraintType ?? null,
+      constraintDate: insertActivity.constraintDate ?? null,
+      deadline: insertActivity.deadline ?? null,
+      activityCodes: insertActivity.activityCodes ?? null,
+      customFields: insertActivity.customFields ?? null,
+      budgetedCost: insertActivity.budgetedCost ?? null,
+      actualCost: insertActivity.actualCost ?? null,
+      earnedValue: insertActivity.earnedValue ?? null,
+      notes: insertActivity.notes ?? null,
+      trade: insertActivity.trade ?? null,
+      responsibility: insertActivity.responsibility ?? null,
+      location: insertActivity.location ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.activities.set(id, activity);
+    return activity;
+  }
+
+  async updateActivity(id: string, updates: Partial<Activity>): Promise<Activity | undefined> {
+    const existing = this.activities.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates, updatedAt: new Date() };
+    this.activities.set(id, updated);
+    return updated;
+  }
+
+  async deleteActivity(id: string): Promise<boolean> {
+    // Also delete related relationships
+    const relationsToDelete: string[] = [];
+    this.relationships.forEach((rel, relId) => {
+      if (rel.predecessorId === id || rel.successorId === id) {
+        relationsToDelete.push(relId);
+      }
     });
-    return true;
+    relationsToDelete.forEach(relId => this.relationships.delete(relId));
+    
+    return this.activities.delete(id);
   }
-  
+
+  async bulkUpdateActivities(updates: { id: string; updates: Partial<Activity> }[]): Promise<void> {
+    for (const { id, updates: activityUpdates } of updates) {
+      await this.updateActivity(id, activityUpdates);
+    }
+  }
+
+  // Relationships
+  async getRelationshipsByProject(projectId: string): Promise<Relationship[]> {
+    return Array.from(this.relationships.values()).filter(r => r.projectId === projectId);
+  }
+
+  async getRelationshipsForActivity(activityId: string): Promise<{
+    predecessors: Relationship[];
+    successors: Relationship[];
+  }> {
+    const all = Array.from(this.relationships.values());
+    return {
+      predecessors: all.filter(r => r.successorId === activityId),
+      successors: all.filter(r => r.predecessorId === activityId)
+    };
+  }
+
+  async createRelationship(insertRelationship: InsertRelationship): Promise<Relationship> {
+    const id = randomUUID();
+    const relationship: Relationship = {
+      ...insertRelationship,
+      id
+    };
+    this.relationships.set(id, relationship);
+    return relationship;
+  }
+
+  async updateRelationship(id: string, updates: Partial<Relationship>): Promise<Relationship | undefined> {
+    const existing = this.relationships.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.relationships.set(id, updated);
+    return updated;
+  }
+
+  async deleteRelationship(id: string): Promise<boolean> {
+    return this.relationships.delete(id);
+  }
+
+  // Calendars
+  async getCalendarsByProject(projectId: string | null): Promise<Calendar[]> {
+    return Array.from(this.calendars.values()).filter(c => 
+      projectId === null ? c.projectId === null : c.projectId === projectId
+    );
+  }
+
+  async getCalendar(id: string): Promise<Calendar | undefined> {
+    return this.calendars.get(id);
+  }
+
+  async createCalendar(insertCalendar: InsertCalendar): Promise<Calendar> {
+    const id = randomUUID();
+    const calendar: Calendar = {
+      ...insertCalendar,
+      id,
+      projectId: insertCalendar.projectId ?? null,
+      standardWorkweek: insertCalendar.standardWorkweek ?? null,
+      holidays: insertCalendar.holidays ?? null,
+      exceptions: insertCalendar.exceptions ?? null
+    };
+    this.calendars.set(id, calendar);
+    return calendar;
+  }
+
+  async updateCalendar(id: string, updates: Partial<Calendar>): Promise<Calendar | undefined> {
+    const existing = this.calendars.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.calendars.set(id, updated);
+    return updated;
+  }
+
+  async deleteCalendar(id: string): Promise<boolean> {
+    return this.calendars.delete(id);
+  }
+
+  // Resources
+  async getResourcesByProject(projectId: string): Promise<Resource[]> {
+    return Array.from(this.resources.values()).filter(r => r.projectId === projectId);
+  }
+
+  async getResource(id: string): Promise<Resource | undefined> {
+    return this.resources.get(id);
+  }
+
+  async createResource(insertResource: InsertResource): Promise<Resource> {
+    const id = randomUUID();
+    const resource: Resource = {
+      ...insertResource,
+      id,
+      unit: insertResource.unit ?? null,
+      standardRate: insertResource.standardRate ?? null,
+      overtimeRate: insertResource.overtimeRate ?? null,
+      calendarId: insertResource.calendarId ?? null,
+      notes: insertResource.notes ?? null
+    };
+    this.resources.set(id, resource);
+    return resource;
+  }
+
+  async updateResource(id: string, updates: Partial<Resource>): Promise<Resource | undefined> {
+    const existing = this.resources.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.resources.set(id, updated);
+    return updated;
+  }
+
+  async deleteResource(id: string): Promise<boolean> {
+    return this.resources.delete(id);
+  }
+
+  // Resource Assignments
+  async getAssignmentsByActivity(activityId: string): Promise<ResourceAssignment[]> {
+    return Array.from(this.resourceAssignments.values()).filter(a => a.activityId === activityId);
+  }
+
+  async getAssignmentsByResource(resourceId: string): Promise<ResourceAssignment[]> {
+    return Array.from(this.resourceAssignments.values()).filter(a => a.resourceId === resourceId);
+  }
+
+  async createAssignment(insertAssignment: InsertResourceAssignment): Promise<ResourceAssignment> {
+    const id = randomUUID();
+    const assignment: ResourceAssignment = {
+      ...insertAssignment,
+      id,
+      plannedUnits: insertAssignment.plannedUnits ?? null,
+      actualUnits: insertAssignment.actualUnits ?? null,
+      remainingUnits: insertAssignment.remainingUnits ?? null,
+      cost: insertAssignment.cost ?? null,
+      actualCost: insertAssignment.actualCost ?? null,
+      remainingCost: insertAssignment.remainingCost ?? null
+    };
+    this.resourceAssignments.set(id, assignment);
+    return assignment;
+  }
+
+  async updateAssignment(id: string, updates: Partial<ResourceAssignment>): Promise<ResourceAssignment | undefined> {
+    const existing = this.resourceAssignments.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.resourceAssignments.set(id, updated);
+    return updated;
+  }
+
+  async deleteAssignment(id: string): Promise<boolean> {
+    return this.resourceAssignments.delete(id);
+  }
+
+  // Baselines
+  async getBaselinesByProject(projectId: string): Promise<Baseline[]> {
+    return Array.from(this.baselines.values()).filter(b => b.projectId === projectId);
+  }
+
+  async getBaseline(id: string): Promise<Baseline | undefined> {
+    return this.baselines.get(id);
+  }
+
+  async createBaseline(insertBaseline: InsertBaseline): Promise<Baseline> {
+    const id = randomUUID();
+    const baseline: Baseline = {
+      ...insertBaseline,
+      id,
+      description: insertBaseline.description ?? null,
+      snapshotData: insertBaseline.snapshotData ?? null,
+      createdAt: new Date()
+    };
+    this.baselines.set(id, baseline);
+    return baseline;
+  }
+
+  async setActiveBaseline(projectId: string, baselineId: string): Promise<void> {
+    // Deactivate all baselines for the project
+    this.baselines.forEach(baseline => {
+      if (baseline.projectId === projectId) {
+        baseline.isActive = baseline.id === baselineId;
+      }
+    });
+  }
+
+  async deleteBaseline(id: string): Promise<boolean> {
+    return this.baselines.delete(id);
+  }
+
+  // TIA Scenarios
+  async getTiaScenariosByProject(projectId: string): Promise<TiaScenario[]> {
+    return Array.from(this.tiaScenarios.values()).filter(s => s.projectId === projectId);
+  }
+
+  async getTiaScenario(id: string): Promise<TiaScenario | undefined> {
+    return this.tiaScenarios.get(id);
+  }
+
+  async createTiaScenario(insertScenario: InsertTiaScenario): Promise<TiaScenario> {
+    const id = randomUUID();
+    const scenario: TiaScenario = {
+      ...insertScenario,
+      id,
+      description: insertScenario.description ?? null,
+      impactType: insertScenario.impactType ?? null,
+      createdBy: insertScenario.createdBy ?? null,
+      createdAt: new Date()
+    };
+    this.tiaScenarios.set(id, scenario);
+    return scenario;
+  }
+
+  async updateTiaScenario(id: string, updates: Partial<TiaScenario>): Promise<TiaScenario | undefined> {
+    const existing = this.tiaScenarios.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.tiaScenarios.set(id, updated);
+    return updated;
+  }
+
+  async deleteTiaScenario(id: string): Promise<boolean> {
+    return this.tiaScenarios.delete(id);
+  }
+
   // Schedule Updates
-  async getScheduleUpdates(scheduleId: string): Promise<ScheduleUpdate[]> {
-    return Array.from(this.scheduleUpdates.values())
-      .filter(u => u.scheduleId === scheduleId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  async getScheduleUpdatesByProject(projectId: string): Promise<ScheduleUpdate[]> {
+    return Array.from(this.scheduleUpdates.values()).filter(u => u.projectId === projectId);
   }
-  
+
+  async getScheduleUpdate(id: string): Promise<ScheduleUpdate | undefined> {
+    return this.scheduleUpdates.get(id);
+  }
+
   async createScheduleUpdate(insertUpdate: InsertScheduleUpdate): Promise<ScheduleUpdate> {
     const id = randomUUID();
     const update: ScheduleUpdate = {
       ...insertUpdate,
       id,
-      createdAt: new Date(),
-      meetingId: insertUpdate.meetingId ?? null,
-      affectedActivities: insertUpdate.affectedActivities ?? null,
-      oldValues: insertUpdate.oldValues ?? null,
-      newValues: insertUpdate.newValues ?? null,
-      createdBy: insertUpdate.createdBy ?? null
+      narrative: insertUpdate.narrative ?? null,
+      changesFromPrevious: insertUpdate.changesFromPrevious ?? null,
+      progressData: insertUpdate.progressData ?? null,
+      createdBy: insertUpdate.createdBy ?? null,
+      approvedBy: insertUpdate.approvedBy ?? null,
+      approvalDate: insertUpdate.approvalDate ?? null,
+      createdAt: new Date()
     };
     this.scheduleUpdates.set(id, update);
     return update;
   }
 }
 
-// Use database storage if DATABASE_URL is set, otherwise use in-memory
-// Commenting out DbStorage import since it doesn't exist yet
-// import { DbStorage } from "./dbStorage";
-
-// For now, use in-memory storage to ensure the app works
-// Database connection seems to have issues in the current environment
+// Create and export storage instance
 export const storage = new MemStorage();
-
-console.log('Using in-memory storage for development');

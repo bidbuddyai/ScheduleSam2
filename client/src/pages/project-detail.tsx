@@ -1,81 +1,92 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import Layout from "@/components/Layout";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { insertMeetingSchema } from "@shared/schema";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import type { Project, Meeting } from "@shared/schema";
-import type { z } from "zod";
-import ScheduleManager from "@/components/ScheduleManager";
+import type { Project, Activity, Wbs, Relationship, Calendar } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
-
-type InsertMeetingForm = z.infer<typeof insertMeetingSchema>;
+import { 
+  Calendar as CalendarIcon, 
+  Clock, 
+  AlertTriangle, 
+  CheckCircle, 
+  Circle, 
+  PlayCircle,
+  Users,
+  BarChart3,
+  GitBranch,
+  Target,
+  Settings
+} from "lucide-react";
+import ScheduleGrid from "@/components/ScheduleGrid";
+import GanttChart from "@/components/GanttChart";
+import ActivityDialog from "@/components/ActivityDialog";
+import WBSTree from "@/components/WBSTree";
+import CalendarManager from "@/components/CalendarManager";
+import BaselineManager from "@/components/BaselineManager";
+import TIAManager from "@/components/TIAManager";
+import ConstraintManager from "@/components/ConstraintManager";
+import ProgressTracker from "@/components/ProgressTracker";
 
 export default function ProjectDetail() {
   const { id } = useParams();
   const { toast } = useToast();
-  const [showNewMeeting, setShowNewMeeting] = useState(false);
+  const [activeTab, setActiveTab] = useState("schedule");
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const [showActivityDialog, setShowActivityDialog] = useState(false);
 
+  // Data queries
   const { data: project, isLoading: projectLoading } = useQuery<Project>({
     queryKey: ["/api/projects", id],
   });
 
-  const { data: meetings = [], isLoading: meetingsLoading } = useQuery<Meeting[]>({
-    queryKey: ["/api/projects", id, "meetings"],
+  const { data: activities = [], isLoading: activitiesLoading } = useQuery<Activity[]>({
+    queryKey: ["/api/projects", id, "activities"],
   });
 
-  const form = useForm<InsertMeetingForm>({
-    resolver: zodResolver(insertMeetingSchema.omit({ projectId: true })),
-    defaultValues: {
-      seqNum: meetings.length + 1,
-      date: new Date().toISOString().split('T')[0],
-      time: "9:00 AM - 10:30 AM",
-      location: "Main Conference Room",
-      preparedBy: ""
-    }
+  const { data: relationships = [], isLoading: relationshipsLoading } = useQuery<Relationship[]>({
+    queryKey: ["/api/projects", id, "relationships"],
   });
 
-  const createMeetingMutation = useMutation({
-    mutationFn: async (data: InsertMeetingForm) => {
-      const response = await apiRequest("POST", `/api/projects/${id}/meetings?carryForward=true`, data);
+  const { data: wbs = [], isLoading: wbsLoading } = useQuery<Wbs[]>({
+    queryKey: ["/api/projects", id, "wbs"],
+  });
+
+  const { data: calendars = [], isLoading: calendarsLoading } = useQuery<Calendar[]>({
+    queryKey: ["/api/projects", id, "calendars"],
+  });
+
+  // Calculate critical path mutation
+  const calculateCriticalPathMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/projects/${id}/calculate-critical-path`, {});
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", id, "meetings"] });
-      setShowNewMeeting(false);
-      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", id, "activities"] });
       toast({
-        title: "Meeting created",
-        description: "The new meeting has been created successfully.",
+        title: "Critical Path Calculated",
+        description: "The schedule has been recalculated with the latest activity data.",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to create meeting. Please try again.",
+        description: "Failed to calculate critical path. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (data: InsertMeetingForm) => {
-    createMeetingMutation.mutate({
-      ...data,
-      seqNum: meetings.length + 1
-    });
-  };
-
-  if (projectLoading || meetingsLoading) {
+  if (projectLoading || activitiesLoading || relationshipsLoading || wbsLoading || calendarsLoading) {
     return (
       <Layout>
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
@@ -85,13 +96,14 @@ export default function ProjectDetail() {
               <Skeleton className="h-4 w-4" />
               <Skeleton className="h-4 w-32" />
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-4">
-                <Skeleton className="h-48 w-full rounded-lg" />
-                <Skeleton className="h-32 w-full rounded-lg" />
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-3 space-y-4">
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-96 w-full rounded-lg" />
               </div>
               <div className="space-y-4">
                 <Skeleton className="h-32 w-full rounded-lg" />
+                <Skeleton className="h-24 w-full rounded-lg" />
                 <Skeleton className="h-24 w-full rounded-lg" />
               </div>
             </div>
@@ -108,8 +120,8 @@ export default function ProjectDetail() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-12">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Project not found</h3>
-                <p className="text-gray-500 mb-4">The requested project could not be found.</p>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Project not found</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">The requested project could not be found.</p>
                 <Link href="/projects">
                   <Button>Back to Projects</Button>
                 </Link>
@@ -121,226 +133,296 @@ export default function ProjectDetail() {
     );
   }
 
-  const sortedMeetings = meetings.sort((a, b) => b.seqNum - a.seqNum);
+  // Calculate project statistics
+  const totalActivities = activities.length;
+  const completedActivities = activities.filter(a => a.status === "Completed").length;
+  const inProgressActivities = activities.filter(a => a.status === "InProgress").length;
+  const criticalActivities = activities.filter(a => a.isCritical).length;
+  const constrainedActivities = activities.filter(a => a.constraintType && a.constraintDate).length;
+  const projectProgress = totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0;
+
+  // Find project start and finish dates
+  const projectStartDate = activities.reduce((earliest, activity) => {
+    if (!activity.earlyStart) return earliest;
+    if (!earliest || new Date(activity.earlyStart) < new Date(earliest)) {
+      return activity.earlyStart;
+    }
+    return earliest;
+  }, null as string | null);
+
+  const projectFinishDate = activities.reduce((latest, activity) => {
+    if (!activity.earlyFinish) return latest;
+    if (!latest || new Date(activity.earlyFinish) > new Date(latest)) {
+      return activity.earlyFinish;
+    }
+    return latest;
+  }, null as string | null);
+
+  const handleActivitySelect = (activityId: string) => {
+    setSelectedActivityId(activityId);
+    setShowActivityDialog(true);
+  };
+
+  const handleNewActivity = () => {
+    setSelectedActivityId(null);
+    setShowActivityDialog(true);
+  };
 
   return (
     <Layout>
-      {/* Breadcrumb */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <nav className="flex items-center space-x-2 text-sm">
-            <Link href="/projects" className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              Projects
-            </Link>
-            <i className="fas fa-chevron-right text-gray-400 dark:text-gray-500 text-xs"></i>
-            <span className="text-gray-900 dark:text-gray-100 font-medium">{project.name}</span>
-          </nav>
-        </div>
-      </motion.div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="space-y-6">
+          {/* Project Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+              <Link href="/projects" className="hover:text-gray-700 dark:hover:text-gray-200">
+                Projects
+              </Link>
+              <span>›</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">{project.name}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button 
+                onClick={() => calculateCriticalPathMutation.mutate()}
+                disabled={calculateCriticalPathMutation.isPending}
+                size="sm"
+                data-testid="button-calculate-critical-path"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                {calculateCriticalPathMutation.isPending ? "Calculating..." : "Update CPM"}
+              </Button>
+              <Button onClick={handleNewActivity} size="sm" data-testid="button-new-activity">
+                <Circle className="w-4 h-4 mr-2" />
+                New Activity
+              </Button>
+            </div>
+          </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Project Header */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6 transition-colors"
-        >
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex justify-between items-start">
-              <div className="flex items-center space-x-4">
-                <motion.div
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                  className="w-16 h-16 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: project.colorPrimary }}
-                >
-                  <i className="fas fa-building text-white text-2xl"></i>
-                </motion.div>
+          {/* Project Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Progress</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{projectProgress}%</p>
+                  </div>
+                  <div className="h-8 w-8 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
+                </div>
+                <Progress value={projectProgress} className="mt-2" />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {completedActivities} of {totalActivities} activities complete
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">In Progress</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{inProgressActivities}</p>
+                  </div>
+                  <div className="h-8 w-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                    <PlayCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Activities currently active</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Critical Path</p>
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">{criticalActivities}</p>
+                  </div>
+                  <div className="h-8 w-8 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Critical activities</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Duration</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                      {projectStartDate && projectFinishDate ? 
+                        Math.ceil((new Date(projectFinishDate).getTime() - new Date(projectStartDate).getTime()) / (1000 * 60 * 60 * 24)) + ' days'
+                        : 'TBD'
+                      }
+                    </p>
+                  </div>
+                  <div className="h-8 w-8 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {projectStartDate && projectFinishDate ? 
+                    `${new Date(projectStartDate).toLocaleDateString()} - ${new Date(projectFinishDate).toLocaleDateString()}`
+                    : 'Schedule calculation needed'
+                  }
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Project Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <span>{project.name}</span>
+                {constrainedActivities > 0 && (
+                  <Badge variant="outline" className="text-orange-600 border-orange-600">
+                    <Target className="w-3 h-3 mr-1" />
+                    {constrainedActivities} Constrained
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-brand-primary">{project.name}</h2>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Created {new Date(project.createdAt).toLocaleDateString()}
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Description</p>
+                  <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">
+                    {project.description || "No description provided"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Contract Period</p>
+                  <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">
+                    {project.contractStartDate && project.contractFinishDate ? 
+                      `${new Date(project.contractStartDate).toLocaleDateString()} - ${new Date(project.contractFinishDate).toLocaleDateString()}`
+                      : 'Not specified'
+                    }
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Data Date</p>
+                  <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">
+                    {project.dataDate ? new Date(project.dataDate).toLocaleDateString() : 'Not set'}
                   </p>
                 </div>
               </div>
-              <Dialog open={showNewMeeting} onOpenChange={setShowNewMeeting}>
-                <DialogTrigger asChild>
-                  <Button 
-                    className="bg-brand-secondary text-white hover:bg-brand-primary"
-                    data-testid="button-new-meeting"
-                  >
-                    <i className="fas fa-plus mr-2"></i>
-                    New Meeting
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Create New Meeting</DialogTitle>
-                  </DialogHeader>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="date"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Date</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} data-testid="input-meeting-date" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="time"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Time</FormLabel>
-                            <FormControl>
-                              <Input {...field} data-testid="input-meeting-time" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="location"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Location</FormLabel>
-                            <FormControl>
-                              <Input {...field} data-testid="input-meeting-location" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="preparedBy"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Prepared By</FormLabel>
-                            <FormControl>
-                              <Input {...field} data-testid="input-meeting-prepared-by" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <div className="flex justify-end space-x-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowNewMeeting(false)}
-                          data-testid="button-cancel-meeting"
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          type="submit" 
-                          disabled={createMeetingMutation.isPending}
-                          className="bg-brand-secondary text-white hover:bg-brand-primary"
-                          data-testid="button-create-meeting"
-                        >
-                          {createMeetingMutation.isPending ? "Creating..." : "Create Meeting"}
-                        </Button>
-                      </div>
-                    </form>
-                  </Form>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-        </motion.div>
+            </CardContent>
+          </Card>
 
-        {/* Meetings List */}
-        <Card>
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-brand-secondary flex items-center space-x-2">
-              <i className="fas fa-calendar-alt"></i>
-              <span>Meetings ({meetings.length})</span>
-            </h3>
-          </div>
-          <CardContent className="p-6">
-            {meetings.length === 0 ? (
-              <div className="text-center py-12">
-                <i className="fas fa-calendar-plus text-4xl text-gray-400 mb-4"></i>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No meetings yet</h3>
-                <p className="text-gray-500 mb-4">Create your first meeting to get started.</p>
-                <Button 
-                  onClick={() => setShowNewMeeting(true)}
-                  className="bg-brand-secondary text-white hover:bg-brand-primary"
-                  data-testid="button-create-first-meeting"
-                >
-                  Create Meeting
-                </Button>
+          {/* Main Tabs Interface */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList className="grid w-full grid-cols-7">
+              <TabsTrigger value="schedule" className="flex items-center space-x-1">
+                <BarChart3 className="w-4 h-4" />
+                <span className="hidden sm:inline">Schedule</span>
+              </TabsTrigger>
+              <TabsTrigger value="gantt" className="flex items-center space-x-1">
+                <GitBranch className="w-4 h-4" />
+                <span className="hidden sm:inline">Gantt</span>
+              </TabsTrigger>
+              <TabsTrigger value="wbs" className="flex items-center space-x-1">
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">WBS</span>
+              </TabsTrigger>
+              <TabsTrigger value="calendars" className="flex items-center space-x-1">
+                <CalendarIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Calendars</span>
+              </TabsTrigger>
+              <TabsTrigger value="baselines" className="flex items-center space-x-1">
+                <Target className="w-4 h-4" />
+                <span className="hidden sm:inline">Baselines</span>
+              </TabsTrigger>
+              <TabsTrigger value="tia" className="flex items-center space-x-1">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="hidden sm:inline">TIA</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center space-x-1">
+                <Settings className="w-4 h-4" />
+                <span className="hidden sm:inline">Settings</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="schedule" className="space-y-4">
+              <ScheduleGrid 
+                activities={activities}
+                relationships={relationships}
+                wbs={wbs}
+                onActivitySelect={handleActivitySelect}
+                onNewActivity={handleNewActivity}
+              />
+            </TabsContent>
+
+            <TabsContent value="gantt" className="space-y-4">
+              <GanttChart 
+                activities={activities}
+                relationships={relationships}
+                wbs={wbs}
+                onActivitySelect={handleActivitySelect}
+              />
+            </TabsContent>
+
+            <TabsContent value="wbs" className="space-y-4">
+              <WBSTree 
+                wbs={wbs}
+                activities={activities}
+                projectId={id!}
+              />
+            </TabsContent>
+
+            <TabsContent value="calendars" className="space-y-4">
+              <CalendarManager 
+                calendars={calendars}
+                projectId={id!}
+              />
+            </TabsContent>
+
+            <TabsContent value="baselines" className="space-y-4">
+              <BaselineManager 
+                projectId={id!}
+                activities={activities}
+                relationships={relationships}
+              />
+            </TabsContent>
+
+            <TabsContent value="tia" className="space-y-4">
+              <TIAManager 
+                projectId={id!}
+                activities={activities}
+                relationships={relationships}
+              />
+            </TabsContent>
+
+            <TabsContent value="settings" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ConstraintManager 
+                  activities={activities}
+                  projectId={id!}
+                />
+                <ProgressTracker 
+                  project={project}
+                  activities={activities}
+                  projectId={id!}
+                />
               </div>
-            ) : (
-              <div className="space-y-4">
-                {sortedMeetings.map((meeting) => (
-                  <div
-                    key={meeting.id}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-brand-accent bg-opacity-20 rounded-lg flex items-center justify-center">
-                          <span className="text-brand-primary font-bold">#{meeting.seqNum}</span>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-900">
-                            Weekly Progress Meeting #{meeting.seqNum}
-                          </h4>
-                          <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                            <div className="flex items-center space-x-1">
-                              <i className="fas fa-calendar text-brand-secondary"></i>
-                              <span>{new Date(meeting.date).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <i className="fas fa-clock text-brand-secondary"></i>
-                              <span>{meeting.time}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <i className="fas fa-map-marker-alt text-brand-secondary"></i>
-                              <span>{meeting.location}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <Link 
-                        href={`/project/${project.id}/meeting/${meeting.seqNum}`}
-                        data-testid={`link-meeting-${meeting.seqNum}`}
-                      >
-                        <Button 
-                          variant="outline"
-                          className="text-brand-secondary border-brand-secondary hover:bg-brand-secondary hover:text-white"
-                        >
-                          Open Meeting
-                          <i className="fas fa-arrow-right ml-2"></i>
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        {/* Schedule Management Section */}
-        <section className="mt-6">
-          <ScheduleManager projectId={id!} />
-        </section>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* Activity Dialog */}
+        <ActivityDialog
+          open={showActivityDialog}
+          onOpenChange={setShowActivityDialog}
+          activityId={selectedActivityId}
+          projectId={id!}
+          wbs={wbs}
+          calendars={calendars}
+          activities={activities}
+        />
       </main>
     </Layout>
   );

@@ -8,7 +8,6 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import NotFound from "@/pages/not-found";
 import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/project-detail";
-import Meeting from "@/pages/meeting";
 
 function Router() {
   return (
@@ -16,7 +15,6 @@ function Router() {
       <Route path="/" component={Projects} />
       <Route path="/projects" component={Projects} />
       <Route path="/project/:id" component={ProjectDetail} />
-      <Route path="/project/:projectId/meeting/:seq" component={Meeting} />
       <Route component={NotFound} />
     </Switch>
   );

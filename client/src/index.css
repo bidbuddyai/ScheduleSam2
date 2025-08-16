@@ -37,10 +37,10 @@
   --sidebar-border: hsl(215 30% 25%);
   --sidebar-ring: hsl(25 95% 53%);
   
-  /* MeetBud Brand Colors - Dark Mode */
-  --brand-primary: hsl(25 95% 53%);
-  --brand-secondary: hsl(217 80% 50%);
-  --brand-accent: hsl(25 90% 60%);
+  /* ScheduleSam Brand Colors - Dark Mode */
+  --brand-primary: hsl(158 64% 52%);
+  --brand-secondary: hsl(160 84% 39%);
+  --brand-accent: hsl(142 71% 45%);
   --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
@@ -56,10 +56,10 @@
   --tracking-normal: 0em;
   --spacing: 0.25rem;
   
-  /* MeetBud Brand Colors */
-  --brand-primary: hsl(25 95% 53%);
-  --brand-secondary: hsl(217 91% 60%);
-  --brand-accent: hsl(25 95% 43%);
+  /* ScheduleSam Brand Colors */
+  --brand-primary: hsl(158 64% 52%);
+  --brand-secondary: hsl(160 84% 39%);
+  --brand-accent: hsl(142 71% 45%);
 }
 
 .dark {
