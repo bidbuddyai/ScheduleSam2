@@ -13,6 +13,8 @@ interface AgendaSectionProps {
 export default function AgendaSection({ meetingId }: AgendaSectionProps) {
   const { toast } = useToast();
   const [expandedTopics, setExpandedTopics] = useState(3); // Show first 3 topics by default
+  const [isCopying, setIsCopying] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const { data: agendaItems = [], isLoading } = useQuery<AgendaItem[]>({
     queryKey: ["/api/meetings", meetingId, "agenda"],
@@ -39,8 +41,57 @@ export default function AgendaSection({ meetingId }: AgendaSectionProps) {
     },
   });
 
+  const copyFromLastMeetingMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/meetings/${meetingId}/copy-agenda`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings", meetingId, "agenda"] });
+      toast({
+        title: "Agenda copied",
+        description: data.message || "Previous meeting's agenda has been copied.",
+      });
+      setIsCopying(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to copy agenda from last meeting.",
+        variant: "destructive",
+      });
+      setIsCopying(false);
+    },
+  });
+
   const handleUpdate = (id: string, field: 'discussion' | 'decision', value: string) => {
     updateAgendaMutation.mutate({ id, updates: { [field]: value } });
+  };
+
+  const handleCopyFromLastMeeting = () => {
+    if (confirm("This will copy decisions and discussions from the last meeting. Continue?")) {
+      setIsCopying(true);
+      copyFromLastMeetingMutation.mutate();
+    }
+  };
+
+  const handleClearAgenda = () => {
+    if (confirm("This will clear all discussions and decisions. The agenda structure will remain. Continue?")) {
+      setIsClearing(true);
+      const promises = agendaItems.map(item => {
+        handleUpdate(item.id, 'discussion', '');
+        handleUpdate(item.id, 'decision', '');
+      });
+      
+      // Wait a bit for updates to complete
+      setTimeout(() => {
+        setIsClearing(false);
+        toast({
+          title: "Agenda cleared",
+          description: "All discussions and decisions have been cleared.",
+        });
+      }, 1000);
+    }
   };
 
   if (isLoading) {
@@ -65,11 +116,35 @@ export default function AgendaSection({ meetingId }: AgendaSectionProps) {
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-      <div className="px-6 py-4 border-b border-gray-200">
+      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <h3 className="text-lg font-semibold text-brand-secondary flex items-center space-x-2">
           <i className="fas fa-clipboard-list"></i>
           <span>Agenda & Minutes</span>
         </h3>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyFromLastMeeting}
+            disabled={isCopying || copyFromLastMeetingMutation.isPending}
+            className="text-brand-secondary hover:text-brand-primary"
+            data-testid="button-copy-last-agenda"
+          >
+            <i className="fas fa-copy mr-2"></i>
+            {isCopying ? "Copying..." : "Copy from Last"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearAgenda}
+            disabled={isClearing}
+            className="text-gray-600 hover:text-red-600"
+            data-testid="button-clear-agenda"
+          >
+            <i className="fas fa-eraser mr-2"></i>
+            {isClearing ? "Clearing..." : "Clear All"}
+          </Button>
+        </div>
       </div>
       <div className="p-6">
         <div className="space-y-6">
@@ -80,14 +155,23 @@ export default function AgendaSection({ meetingId }: AgendaSectionProps) {
                   {item.topicOrder}. {item.title}
                 </h4>
                 <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-brand-secondary hover:text-brand-primary"
-                    data-testid={`button-edit-agenda-${item.id}`}
-                  >
-                    <i className="fas fa-edit"></i>
-                  </Button>
+                  {(item.discussion || item.decision) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm("Clear this agenda item's discussion and decision?")) {
+                          handleUpdate(item.id, 'discussion', '');
+                          handleUpdate(item.id, 'decision', '');
+                        }
+                      }}
+                      className="text-gray-500 hover:text-red-600"
+                      title="Clear this item"
+                      data-testid={`button-clear-agenda-${item.id}`}
+                    >
+                      <i className="fas fa-times"></i>
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

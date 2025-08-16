@@ -115,6 +115,27 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
     },
   });
 
+  const deleteActionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/actions/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings", meetingId, "actions"] });
+      toast({
+        title: "Action item deleted",
+        description: "The action item has been removed.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete action item. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: InsertActionItemForm) => {
     createActionMutation.mutate(data);
   };
@@ -201,13 +222,16 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
                   )}
                 </div>
                 <div className="flex items-center space-x-2">
-                  <button 
-                    className="text-brand-secondary hover:text-brand-primary"
-                    onClick={() => setEditingAction(action)}
-                    data-testid={`button-edit-action-${action.id}`}
-                  >
-                    <i className="fas fa-edit"></i>
-                  </button>
+                  {action.status !== "Closed" && (
+                    <button 
+                      className="text-green-600 hover:text-green-700"
+                      onClick={() => updateActionMutation.mutate({ id: action.id, updates: { status: "Closed" } })}
+                      title="Mark Complete"
+                      data-testid={`button-complete-action-${action.id}`}
+                    >
+                      <i className="fas fa-check-circle"></i>
+                    </button>
+                  )}
                   <Select
                     value={action.status}
                     onValueChange={(value) => updateActionMutation.mutate({ id: action.id, updates: { status: value as "Open" | "In Progress" | "Closed" } })}
@@ -221,6 +245,18 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
                       <SelectItem value="Closed">Closed</SelectItem>
                     </SelectContent>
                   </Select>
+                  <button 
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => {
+                      if (confirm("Are you sure you want to delete this action item?")) {
+                        deleteActionMutation.mutate(action.id);
+                      }
+                    }}
+                    title="Delete"
+                    data-testid={`button-delete-action-${action.id}`}
+                  >
+                    <i className="fas fa-trash"></i>
+                  </button>
                 </div>
               </div>
             </div>

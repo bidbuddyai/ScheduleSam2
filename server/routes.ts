@@ -260,6 +260,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Copy agenda from last meeting
+  app.post("/api/meetings/:id/copy-agenda", async (req, res) => {
+    try {
+      const currentMeeting = await storage.getMeeting(req.params.id);
+      if (!currentMeeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      // Get previous meeting
+      const meetings = await storage.getMeetingsByProject(currentMeeting.projectId || "");
+      const sortedMeetings = meetings
+        .filter(m => m.id !== currentMeeting.id && m.seqNum < currentMeeting.seqNum)
+        .sort((a, b) => b.seqNum - a.seqNum);
+      
+      if (sortedMeetings.length === 0) {
+        return res.status(404).json({ error: "No previous meeting found" });
+      }
+
+      const lastMeeting = sortedMeetings[0];
+      const lastAgenda = await storage.getAgendaItemsByMeeting(lastMeeting.id);
+      const currentAgenda = await storage.getAgendaItemsByMeeting(currentMeeting.id);
+
+      // Update current agenda with last meeting's decisions and new discussions
+      for (const currentItem of currentAgenda) {
+        const matchingLastItem = lastAgenda.find(item => item.title === currentItem.title);
+        if (matchingLastItem) {
+          // Copy decisions from last meeting as starting point for discussion
+          let newDiscussion = currentItem.discussion || "";
+          if (matchingLastItem.decision) {
+            newDiscussion = `Previous Decision: ${matchingLastItem.decision}\n\n${newDiscussion}`;
+          }
+          if (matchingLastItem.discussion && !currentItem.discussion) {
+            newDiscussion += `\n\nPrevious Discussion: ${matchingLastItem.discussion}`;
+          }
+          
+          await storage.updateAgendaItem(currentItem.id, {
+            discussion: newDiscussion
+          });
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Agenda copied from Meeting #${lastMeeting.seqNum}` 
+      });
+    } catch (error) {
+      console.error("Error copying agenda:", error);
+      res.status(500).json({ error: "Failed to copy agenda from last meeting" });
+    }
+  });
+
   // Action Items
   app.get("/api/meetings/:id/actions", async (req, res) => {
     try {
@@ -292,6 +343,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updated);
     } catch (error) {
       res.status(400).json({ error: "Failed to update action item" });
+    }
+  });
+
+  app.delete("/api/actions/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteActionItem(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Action item not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(400).json({ error: "Failed to delete action item" });
     }
   });
 

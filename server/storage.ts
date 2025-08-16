@@ -31,6 +31,7 @@ export interface IStorage {
   getActionItemsByMeeting(meetingId: string): Promise<ActionItem[]>;
   createActionItem(item: InsertActionItem): Promise<ActionItem>;
   updateActionItem(id: string, updates: Partial<ActionItem>): Promise<ActionItem | undefined>;
+  deleteActionItem(id: string): Promise<boolean>;
   
   // Open Items
   getOpenItemsByProject(projectId: string): Promise<OpenItem[]>;
@@ -276,6 +277,10 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...updates };
     this.actionItems.set(id, updated);
     return updated;
+  }
+
+  async deleteActionItem(id: string): Promise<boolean> {
+    return this.actionItems.delete(id);
   }
 
   // Open Items
