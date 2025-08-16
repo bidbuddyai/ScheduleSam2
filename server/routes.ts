@@ -471,7 +471,7 @@ Format as JSON with:
 - carryForward: [items]`;
 
       const response = await poe.chat.completions.create({
-        model: "gemini-2.5-pro",
+        model: "Claude-Sonnet-4",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Meeting #${meeting.seqNum} content:\n${fileContent}` }
@@ -615,7 +615,7 @@ ${actions.map(a => `- ${a.action} (Owner: ${a.owner})`).join('\n')}
 Provide a professional summary.`;
       
       const response = await poe.chat.completions.create({
-        model: "gemini-2.5-pro",
+        model: "Claude-Sonnet-4",
         messages: [
           { role: "system", content: "You are a professional meeting minutes writer. Be concise and professional." },
           { role: "user", content: prompt }
@@ -638,7 +638,7 @@ Provide a professional summary.`;
   // AI Assistant
   app.post("/api/ai/chat", async (req, res) => {
     try {
-      const { messages, model = "gemini-2.5-pro" } = req.body;
+      const { messages, model = "Claude-Sonnet-4" } = req.body;
       
       const systemMessage = {
         role: "system" as const,

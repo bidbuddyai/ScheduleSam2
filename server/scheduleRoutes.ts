@@ -122,7 +122,7 @@ Format as JSON array with these fields. Here's the schedule content:
 ${fileContent}`;
 
       const parseResponse = await poe.chat.completions.create({
-        model: "gemini-2.5-pro",
+        model: "Claude-Sonnet-4",
         messages: [
           { role: "system", content: "You are a construction schedule parser. Extract structured data from schedule files." },
           { role: "user", content: parsePrompt }
@@ -310,7 +310,7 @@ Format as JSON with:
 - recommendations: [text recommendations]`;
 
       const updateResponse = await poe.chat.completions.create({
-        model: "gemini-2.5-pro",
+        model: "Claude-Sonnet-4",
         messages: [
           { role: "system", content: "You are a construction schedule analyst. Suggest schedule updates based on meeting discussions." },
           { role: "user", content: updatePrompt }

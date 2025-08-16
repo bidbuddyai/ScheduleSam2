@@ -5,7 +5,7 @@ export const poe = new OpenAI({
   baseURL: "https://api.poe.com/v1",
 });
 
-export async function streamLLM(messages: {role:"system"|"user"|"assistant"; content:string}[], model="gemini-2.5-pro") {
+export async function streamLLM(messages: {role:"system"|"user"|"assistant"; content:string}[], model="Claude-Sonnet-4") {
   const stream = await poe.chat.completions.create({ model, messages, stream: true });
   const chunks: string[] = [];
   for await (const part of stream) {

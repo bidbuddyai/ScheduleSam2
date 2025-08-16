@@ -132,13 +132,15 @@ Provide:
   }
   
   try {
+    console.log('Sending request to AI model Claude-Sonnet-4...');
     const response = await poe.chat.completions.create({
-      model: "gemini-2.5-pro",
+      model: "Claude-Sonnet-4",  // Using Claude for better complex analysis
       messages: [
         { role: "system", content: SCHEDULE_SYSTEM_PROMPT },
         { role: "user", content: prompt }
       ]
     });
+    console.log('AI response received');
     
     let content = response.choices[0].message.content || "{}";
     
@@ -257,7 +259,7 @@ Return as JSON:
 
   try {
     const response = await poe.chat.completions.create({
-      model: "gemini-2.5-pro",
+      model: "Claude-Sonnet-4",  // Using Claude for better analysis
       messages: [
         { role: "system", content: "You are a construction schedule analyst. Identify schedule impacts from meeting discussions." },
         { role: "user", content: prompt }

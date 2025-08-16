@@ -23,6 +23,7 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
   const [userRequest, setUserRequest] = useState("");
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState("");
   const [projectStartDate, setProjectStartDate] = useState(
     new Date().toISOString().split('T')[0]
   );
@@ -98,10 +99,35 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
     }
     
     setIsGenerating(true);
+    setGenerationProgress("Initializing AI analysis...");
+    
+    // Set progress updates
+    const progressTimer1 = setTimeout(() => {
+      if (isGenerating) {
+        setGenerationProgress("Analyzing uploaded documents (this may take 30-60 seconds)...");
+      }
+    }, 5000);
+    
+    const progressTimer2 = setTimeout(() => {
+      if (isGenerating) {
+        setGenerationProgress("Building CPM schedule with dependencies...");
+      }
+    }, 20000);
+    
+    const progressTimer3 = setTimeout(() => {
+      if (isGenerating) {
+        setGenerationProgress("Finalizing schedule and calculating critical path...");
+      }
+    }, 35000);
+    
     try {
       await generateScheduleMutation.mutateAsync('create');
     } finally {
       setIsGenerating(false);
+      setGenerationProgress("");
+      clearTimeout(progressTimer1);
+      clearTimeout(progressTimer2);
+      clearTimeout(progressTimer3);
     }
   };
   
@@ -284,6 +310,23 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
                 )}
               </div>
               
+              {uploadedFileNames.length > 0 && (
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertDescription className="text-sm">
+                    <strong>Note:</strong> AI analysis of {uploadedFileNames.length} document(s) may take 30-60 seconds using Claude-Sonnet-4 for accurate results.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {isGenerating && generationProgress && (
+                <Alert className="bg-amber-50 border-amber-200">
+                  <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                  <AlertDescription className="text-sm inline">
+                    {generationProgress}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               <Button 
                 onClick={handleGenerateSchedule}
                 disabled={isGenerating}
@@ -292,7 +335,7 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating CPM Schedule...
+                    {generationProgress || "Generating CPM Schedule..."}
                   </>
                 ) : (
                   <>

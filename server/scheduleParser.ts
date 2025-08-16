@@ -272,7 +272,7 @@ Return as JSON:
 
     try {
       const response = await poe.chat.completions.create({
-        model: "gemini-2.5-pro",
+        model: "Claude-Sonnet-4",  // Better for complex document analysis
         messages: [
           { 
             role: "system", 
@@ -344,7 +344,7 @@ Include projectInfo with name, startDate, finishDate, dataDate.`;
 
     try {
       const response = await poe.chat.completions.create({
-        model: "gemini-2.5-pro",
+        model: "Claude-Sonnet-4",  // Better for complex document analysis
         messages: [
           { 
             role: "system", 
