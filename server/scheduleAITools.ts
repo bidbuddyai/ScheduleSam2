@@ -1,5 +1,6 @@
 import { poe } from "./poeClient";
 import type { Activity } from "../client/src/components/ScheduleEditor";
+import { ObjectStorageService } from "./objectStorage";
 
 export interface ScheduleAIRequest {
   type: 'create' | 'update' | 'lookahead' | 'analyze';
@@ -8,6 +9,7 @@ export interface ScheduleAIRequest {
   userRequest: string;
   startDate?: string;
   constraints?: string[];
+  uploadedFiles?: string[];
 }
 
 export interface ScheduleAIResponse {
@@ -49,68 +51,83 @@ Return schedules as JSON with this structure:
       "resources": ["Resource1", "Resource2"]
     }
   ],
-  "summary": "Brief description of the schedule",
+  "summary": "Brief summary of the schedule",
   "criticalPath": ["A001", "A003", "A007"],
-  "recommendations": ["Consider adding float to critical activities", "Weather window concern for exterior work"]
+  "recommendations": ["Consider adding weather contingency", "Review resource loading"]
 }`;
 
 export async function generateScheduleWithAI(request: ScheduleAIRequest): Promise<ScheduleAIResponse> {
+  // Read content from uploaded files if provided
+  let uploadedContent = '';
+  if (request.uploadedFiles && request.uploadedFiles.length > 0) {
+    const objectStorage = new ObjectStorageService();
+    const fileContents: string[] = [];
+    
+    for (const filePath of request.uploadedFiles) {
+      try {
+        const content = await objectStorage.readObjectContent(filePath);
+        // Limit content to 5000 chars per file to avoid token limits
+        fileContents.push(`\n--- Content from uploaded file ---\n${content.substring(0, 5000)}\n--- End of file ---\n`);
+      } catch (error) {
+        console.error(`Failed to read file ${filePath}:`, error);
+      }
+    }
+    
+    if (fileContents.length > 0) {
+      uploadedContent = `\n\nUploaded Documents Content:\n${fileContents.join('\n')}`;
+    }
+  }
+  
   let prompt = '';
   
   switch (request.type) {
     case 'create':
       prompt = `Create a CPM schedule for this project:
-${request.projectDescription}
+${request.projectDescription}${uploadedContent}
 
 Start Date: ${request.startDate || 'Today'}
 ${request.constraints ? `Constraints: ${request.constraints.join(', ')}` : ''}
 
-User Request: ${request.userRequest}
-
-Generate a complete CPM schedule with all activities, durations, and predecessor relationships.
-Include WBS codes and resource assignments.`;
+Generate a complete CPM schedule with:
+1. All major phases and activities
+2. Realistic durations based on project size
+3. Proper predecessor relationships
+4. Resource assignments
+5. WBS structure
+6. Critical path identification`;
       break;
       
     case 'update':
-      prompt = `Update this CPM schedule based on the user's request:
+      prompt = `Update this schedule based on the request:
+${request.userRequest}${uploadedContent}
 
-Current Activities:
+Current activities:
 ${JSON.stringify(request.currentActivities, null, 2)}
 
-User Request: ${request.userRequest}
-
-Modify the schedule as requested. Maintain all predecessor relationships and recalculate the critical path.`;
+Apply the requested changes and return the updated schedule.`;
       break;
       
     case 'lookahead':
-      prompt = `Generate a 3-week lookahead schedule from this CPM schedule:
+      prompt = `Generate a 3-week lookahead schedule.
+Start Date: ${request.startDate || 'Today'}${uploadedContent}
 
-Current Activities:
-${JSON.stringify(request.currentActivities, null, 2)}
-
-Start Date for Lookahead: ${request.startDate || 'Today'}
-
-Filter and organize activities for the next 3 weeks. Include:
-- Activities starting or ongoing in the 3-week window
-- Predecessor constraints that may impact the window
-- Resource requirements and potential conflicts
-- Recommended focus areas`;
+Filter activities that should be worked on in the next 3 weeks.
+Current activities:
+${JSON.stringify(request.currentActivities, null, 2)}`;
       break;
       
     case 'analyze':
-      prompt = `Analyze this CPM schedule and provide recommendations:
+      prompt = `Analyze this schedule and provide recommendations:
+${request.userRequest}${uploadedContent}
 
-Current Activities:
+Current schedule:
 ${JSON.stringify(request.currentActivities, null, 2)}
 
-User Request: ${request.userRequest}
-
-Analyze for:
-- Critical path optimization
-- Resource leveling opportunities  
-- Risk mitigation strategies
-- Schedule compression options
-- Potential delays or conflicts`;
+Provide:
+1. Critical path analysis
+2. Resource conflicts
+3. Schedule optimization recommendations
+4. Risk assessment`;
       break;
   }
   
@@ -124,103 +141,121 @@ Analyze for:
     });
     
     const content = response.choices[0].message.content || "{}";
+    const result = JSON.parse(content);
     
-    // Parse the response
-    let result: ScheduleAIResponse;
-    try {
-      result = JSON.parse(content);
-      
-      // Ensure all activities have required fields
-      result.activities = result.activities.map((act: any, index: number) => ({
-        id: act.id || crypto.randomUUID(),
-        activityId: act.activityId || `A${(index + 1).toString().padStart(3, '0')}`,
-        activityName: act.activityName || 'Unnamed Activity',
-        duration: act.duration || 1,
-        predecessors: act.predecessors || [],
-        successors: [],
-        status: act.status || 'Not Started',
-        percentComplete: act.percentComplete || 0,
-        wbs: act.wbs || '',
-        resources: act.resources || []
-      }));
-      
-    } catch (parseError) {
-      // If parsing fails, return a default response
-      result = {
-        activities: [],
-        summary: content,
-        recommendations: ["Unable to parse schedule. Please try again with a more specific request."]
-      };
-    }
+    // Process activities to ensure they have all required fields
+    const activities = (result.activities || []).map((act: any, index: number) => ({
+      id: crypto.randomUUID(),
+      activityId: act.activityId || `A${(index + 1).toString().padStart(3, '0')}`,
+      activityName: act.activityName || 'Unnamed Activity',
+      duration: act.duration || 1,
+      predecessors: act.predecessors || [],
+      successors: [],
+      status: act.status || 'Not Started',
+      percentComplete: act.percentComplete || 0,
+      startDate: act.startDate || request.startDate || new Date().toISOString().split('T')[0],
+      finishDate: act.finishDate || '',
+      wbs: act.wbs || '',
+      resources: act.resources || [],
+      earlyStart: 0,
+      earlyFinish: 0,
+      lateStart: 0,
+      lateFinish: 0,
+      totalFloat: 0,
+      freeFloat: 0,
+      isCritical: false
+    }));
     
-    return result;
+    // Calculate CPM (simplified version)
+    activities.forEach((activity: Activity) => {
+      activity.earlyFinish = (activity.earlyStart || 0) + activity.duration;
+    });
+    
+    // Set successors
+    activities.forEach((activity: Activity) => {
+      activity.predecessors.forEach(predId => {
+        const pred = activities.find((a: Activity) => a.activityId === predId);
+        if (pred && !pred.successors.includes(activity.activityId)) {
+          pred.successors.push(activity.activityId);
+        }
+      });
+    });
+    
+    // Mark critical path
+    const criticalPath = result.criticalPath || [];
+    activities.forEach((activity: Activity) => {
+      activity.isCritical = criticalPath.includes(activity.activityId);
+    });
+    
+    return {
+      activities,
+      summary: result.summary || `Generated ${activities.length} activities`,
+      criticalPath,
+      recommendations: result.recommendations || []
+    };
   } catch (error) {
-    console.error("Error generating schedule with AI:", error);
-    throw error;
+    console.error('Error generating schedule with AI:', error);
+    throw new Error('Failed to generate schedule');
   }
 }
 
-// Helper function to convert activities to text format for meeting updates
-export function activitiesToText(activities: Activity[]): string {
-  return activities.map(act => 
-    `${act.activityId}: ${act.activityName} (${act.duration}d, ${act.status}, ${act.percentComplete}% complete)`
-  ).join('\n');
-}
-
-// Helper function to identify schedule impacts from meeting discussion
 export async function identifyScheduleImpacts(
-  meetingDiscussion: string,
-  currentActivities: Activity[]
+  meetingNotes: string,
+  currentSchedule: Activity[]
 ): Promise<{
   impactedActivities: string[];
-  suggestedChanges: Array<{
+  suggestedUpdates: Array<{
     activityId: string;
     field: string;
     newValue: any;
     reason: string;
   }>;
 }> {
-  const prompt = `Analyze this meeting discussion for schedule impacts:
+  const prompt = `Analyze these meeting notes and identify schedule impacts:
 
-Meeting Discussion:
-${meetingDiscussion}
+Meeting Notes:
+${meetingNotes}
 
 Current Schedule Activities:
-${activitiesToText(currentActivities)}
+${currentSchedule.map(a => `${a.activityId}: ${a.activityName} (${a.status})`).join('\n')}
 
 Identify:
-1. Which activities are impacted
-2. What changes should be made (status, duration, dates)
-3. Reasoning for each change
+1. Which activities are mentioned or impacted
+2. What updates should be made (status changes, date changes, etc.)
+3. Reason for each update
 
 Return as JSON:
 {
   "impactedActivities": ["A001", "A002"],
-  "suggestedChanges": [
+  "suggestedUpdates": [
     {
       "activityId": "A001",
       "field": "status",
       "newValue": "In Progress",
-      "reason": "Team reported starting foundation work"
+      "reason": "Meeting notes indicate work has started"
     }
   ]
 }`;
 
-  const response = await poe.chat.completions.create({
-    model: "gemini-2.5-pro",
-    messages: [
-      { role: "system", content: "You are a construction schedule analyst. Identify schedule impacts from meeting discussions." },
-      { role: "user", content: prompt }
-    ]
-  });
-  
   try {
-    const content = response.choices[0].message.content || "{}";
-    return JSON.parse(content);
-  } catch {
+    const response = await poe.chat.completions.create({
+      model: "gemini-2.5-pro",
+      messages: [
+        { role: "system", content: "You are a construction schedule analyst. Identify schedule impacts from meeting discussions." },
+        { role: "user", content: prompt }
+      ]
+    });
+    
+    const result = JSON.parse(response.choices[0].message.content || "{}");
+    return {
+      impactedActivities: result.impactedActivities || [],
+      suggestedUpdates: result.suggestedUpdates || []
+    };
+  } catch (error) {
+    console.error('Error identifying schedule impacts:', error);
     return {
       impactedActivities: [],
-      suggestedChanges: []
+      suggestedUpdates: []
     };
   }
 }

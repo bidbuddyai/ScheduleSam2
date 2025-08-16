@@ -751,6 +751,49 @@ Provide a professional summary.`;
   // Register schedule management routes
   registerScheduleRoutes(app);
   
+  // Object storage endpoints for file uploads
+  app.post("/api/objects/upload", async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+  
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(
+        req.path,
+      );
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error accessing object:", error);
+      return res.sendStatus(500);
+    }
+  });
+  
+  app.post("/api/objects/finalize", async (req, res) => {
+    try {
+      const { uploadURL } = req.body;
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        uploadURL,
+        {
+          owner: "system",
+          visibility: "public",
+        },
+      );
+      res.json({ objectPath });
+    } catch (error) {
+      console.error("Error finalizing upload:", error);
+      res.status(500).json({ error: "Failed to finalize upload" });
+    }
+  });
+  
   const httpServer = createServer(app);
   return httpServer;
 }

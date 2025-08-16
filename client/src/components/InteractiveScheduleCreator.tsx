@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Sparkles, Calendar, GitBranch } from "lucide-react";
+import { Loader2, Sparkles, Calendar, GitBranch, Upload, FileText } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import ScheduleEditor, { type Activity } from "./ScheduleEditor";
+import { ObjectUploader } from "./ObjectUploader";
+import type { UploadResult } from "@uppy/core";
 
 interface InteractiveScheduleCreatorProps {
   projectId: string;
@@ -24,6 +26,8 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
   const [projectStartDate, setProjectStartDate] = useState(
     new Date().toISOString().split('T')[0]
   );
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [uploadedFileNames, setUploadedFileNames] = useState<string[]>([]);
   
   // Generate schedule with AI
   const generateScheduleMutation = useMutation({
@@ -33,7 +37,8 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
         projectDescription,
         currentActivities: activities,
         userRequest,
-        startDate: projectStartDate
+        startDate: projectStartDate,
+        uploadedFiles
       });
       return response.json();
     },
@@ -214,6 +219,71 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
                 </div>
               </div>
               
+              <div>
+                <Label>Upload Documents (Optional)</Label>
+                <div className="flex items-center gap-2 mt-2">
+                  <ObjectUploader
+                    maxNumberOfFiles={5}
+                    maxFileSize={10 * 1024 * 1024} // 10MB
+                    onGetUploadParameters={async () => {
+                      const response = await fetch('/api/objects/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                      });
+                      const data = await response.json();
+                      return {
+                        method: 'PUT' as const,
+                        url: data.uploadURL,
+                      };
+                    }}
+                    onComplete={async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+                      if (result.successful && result.successful.length > 0) {
+                        const newFiles: string[] = [];
+                        const newFileNames: string[] = [];
+                        
+                        for (const file of result.successful) {
+                          const uploadURL = file.uploadURL as string;
+                          if (uploadURL) {
+                            // Finalize the upload
+                            const response = await fetch('/api/objects/finalize', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ uploadURL }),
+                            });
+                            const data = await response.json();
+                            newFiles.push(data.objectPath);
+                            newFileNames.push(file.name || 'Unknown File');
+                          }
+                        }
+                        
+                        setUploadedFiles(prev => [...prev, ...newFiles]);
+                        setUploadedFileNames(prev => [...prev, ...newFileNames]);
+                        
+                        toast({
+                          title: "Files uploaded",
+                          description: `Successfully uploaded ${result.successful.length} file(s)`,
+                        });
+                      }
+                    }}
+                    buttonClassName="w-full"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Plans/Specs/Documents
+                  </ObjectUploader>
+                </div>
+                {uploadedFileNames.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <div className="text-sm text-gray-600">Uploaded files:</div>
+                    {uploadedFileNames.map((name, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <FileText className="h-4 w-4 text-gray-400" />
+                        <span>{name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
               <Button 
                 onClick={handleGenerateSchedule}
                 disabled={isGenerating}
@@ -298,6 +368,8 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
                     setActivities([]);
                     setProjectDescription("");
                     setUserRequest("");
+                    setUploadedFiles([]);
+                    setUploadedFileNames([]);
                   }}
                   variant="ghost"
                 >

@@ -364,15 +364,16 @@ Format as JSON with:
   // AI-powered schedule generation
   app.post("/api/projects/:projectId/schedules/generate-ai", async (req, res) => {
     try {
-      const { type, projectDescription, currentActivities, userRequest, startDate, constraints } = req.body;
+      const { type, projectDescription, currentActivities, userRequest, startDate, constraints, uploadedFiles } = req.body;
       
       const result = await generateScheduleWithAI({
         type,
         projectDescription,
         currentActivities,
-        userRequest,
+        userRequest: userRequest || '',
         startDate,
-        constraints
+        constraints,
+        uploadedFiles
       });
       
       // If creating a new schedule, save it to database
