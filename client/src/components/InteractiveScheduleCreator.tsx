@@ -18,6 +18,41 @@ interface InteractiveScheduleCreatorProps {
   onScheduleCreated?: (scheduleId: string) => void;
 }
 
+// Available models from Poe's OpenAI-compatible API
+const POE_MODELS = [
+  // GPT Models
+  { value: "GPT-5", label: "GPT-5 (Latest)", category: "GPT" },
+  { value: "GPT-5-mini", label: "GPT-5 Mini", category: "GPT" },
+  { value: "GPT-4o", label: "GPT-4o (High Quality)", category: "GPT" },
+  { value: "GPT-4.1", label: "GPT-4.1", category: "GPT" },
+  { value: "GPT-3.5-Turbo", label: "GPT-3.5-Turbo (Cheap)", category: "GPT" },
+  
+  // Claude Models
+  { value: "Claude-Opus-4.1", label: "Claude Opus 4.1", category: "Claude" },
+  { value: "Claude-Sonnet-4", label: "Claude Sonnet 4 (Best Quality)", category: "Claude" },
+  { value: "Claude-3.5-Sonnet", label: "Claude 3.5 Sonnet", category: "Claude" },
+  { value: "Claude-3-Haiku", label: "Claude-3-Haiku (Fast & Cheap)", category: "Claude" },
+  
+  // Google Models
+  { value: "Gemini-2.5-Pro", label: "Gemini 2.5 Pro (1M context)", category: "Google" },
+  { value: "Gemini-2.0-Flash", label: "Gemini 2.0 Flash", category: "Google" },
+  
+  // Reasoning Models
+  { value: "o3-pro", label: "o3 Pro (Advanced Reasoning)", category: "Reasoning" },
+  { value: "DeepSeek-R1-T", label: "DeepSeek R1-T (Reasoning)", category: "Reasoning" },
+  { value: "DeepSeek-V3-FW", label: "DeepSeek V3-FW", category: "Reasoning" },
+  { value: "Llama-4-Scout-T", label: "Llama 4 Scout-T (Reasoning)", category: "Reasoning" },
+  
+  // Other Leading Models
+  { value: "Grok-4", label: "Grok 4 (xAI)", category: "Other" },
+  { value: "GLM-4.5", label: "GLM 4.5", category: "Other" },
+  { value: "Kimi-K2", label: "Kimi K2", category: "Other" },
+  { value: "Qwen-3-235B-T", label: "Qwen 3 235B-T", category: "Other" },
+  { value: "Mistral-Small-3", label: "Mistral Small 3", category: "Other" },
+  { value: "Llama-4-Maverick", label: "Llama 4 Maverick", category: "Other" },
+  { value: "Llama-3.1-405B", label: "Llama-3.1-405B (Good & Free)", category: "Other" },
+];
+
 export default function InteractiveScheduleCreator({ projectId, onScheduleCreated }: InteractiveScheduleCreatorProps) {
   const { toast } = useToast();
   const [projectDescription, setProjectDescription] = useState("");
@@ -30,7 +65,7 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
   );
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [uploadedFileNames, setUploadedFileNames] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState("Claude-3-Haiku");
+  const [selectedModel, setSelectedModel] = useState("Claude-Sonnet-4");
   
   // Generate schedule with AI
   const generateScheduleMutation = useMutation({
@@ -240,13 +275,46 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
                     <SelectTrigger id="ai-model">
                       <SelectValue placeholder="Select AI model" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Claude-3-Haiku">Claude-3-Haiku (Fast & Cheap)</SelectItem>
-                      <SelectItem value="GPT-3.5-Turbo">GPT-3.5-Turbo (Cheap)</SelectItem>
-                      <SelectItem value="Claude-Sonnet-4">Claude-Sonnet-4 (Best Quality)</SelectItem>
-                      <SelectItem value="GPT-4o">GPT-4o (High Quality)</SelectItem>
-                      <SelectItem value="Llama-3.1-405B">Llama-3.1-405B (Good & Free)</SelectItem>
-                      <SelectItem value="gemini-2.5-pro">Gemini-2.5-Pro (Fast)</SelectItem>
+                    <SelectContent className="max-h-[400px] overflow-y-auto">
+                      {/* GPT Models */}
+                      <div className="font-semibold text-xs text-gray-500 px-2 py-1 sticky top-0 bg-white">GPT Models</div>
+                      {POE_MODELS.filter(m => m.category === "GPT").map(model => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                      
+                      {/* Claude Models */}
+                      <div className="font-semibold text-xs text-gray-500 px-2 py-1 mt-2 sticky top-0 bg-white">Claude Models</div>
+                      {POE_MODELS.filter(m => m.category === "Claude").map(model => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                      
+                      {/* Google Models */}
+                      <div className="font-semibold text-xs text-gray-500 px-2 py-1 mt-2 sticky top-0 bg-white">Google Models</div>
+                      {POE_MODELS.filter(m => m.category === "Google").map(model => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                      
+                      {/* Reasoning Models */}
+                      <div className="font-semibold text-xs text-gray-500 px-2 py-1 mt-2 sticky top-0 bg-white">Reasoning Models</div>
+                      {POE_MODELS.filter(m => m.category === "Reasoning").map(model => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                      
+                      {/* Other Models */}
+                      <div className="font-semibold text-xs text-gray-500 px-2 py-1 mt-2 sticky top-0 bg-white">Other Models</div>
+                      {POE_MODELS.filter(m => m.category === "Other").map(model => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -335,7 +403,7 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
               {uploadedFileNames.length > 0 && (
                 <Alert className="bg-blue-50 border-blue-200">
                   <AlertDescription className="text-sm">
-                    <strong>Note:</strong> AI analysis of {uploadedFileNames.length} document(s) may take 30-60 seconds using {selectedModel} for accurate results.
+                    <strong>Note:</strong> AI analysis of {uploadedFileNames.length} document(s) may take 30-60 seconds using {POE_MODELS.find(m => m.value === selectedModel)?.label || selectedModel} for accurate results.
                   </AlertDescription>
                 </Alert>
               )}
