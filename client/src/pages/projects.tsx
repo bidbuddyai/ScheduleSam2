@@ -102,9 +102,9 @@ export default function Projects() {
 
   return (
     <Layout>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-brand-primary">Projects</h2>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-brand-primary">Projects</h2>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button 
@@ -115,9 +115,9 @@ export default function Projects() {
                 New Project
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="w-[90vw] sm:w-full max-w-md">
               <DialogHeader>
-                <DialogTitle>Create New Project</DialogTitle>
+                <DialogTitle className="text-lg sm:text-xl">Create New Project</DialogTitle>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -179,10 +179,10 @@ export default function Projects() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {projects.map((project) => (
               <Card key={project.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
+                <CardContent className="p-4 sm:pt-6">
                   <div className="flex items-start justify-between mb-4">
                     <div
                       className="w-12 h-12 rounded-lg flex items-center justify-center"
@@ -197,12 +197,12 @@ export default function Projects() {
                     </div>
                   </div>
                   
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{project.name}</h3>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{project.name}</h3>
                   
                   <div className="flex items-center justify-between">
                     <Link 
                       href={`/project/${project.id}`}
-                      className="text-brand-secondary hover:text-brand-primary font-medium"
+                      className="text-sm sm:text-base text-brand-secondary hover:text-brand-primary font-medium"
                       data-testid={`link-project-${project.id}`}
                     >
                       View Project →

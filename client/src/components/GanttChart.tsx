@@ -400,46 +400,68 @@ export default function GanttChart({ activities, projectStartDate, onActivityCli
   };
   
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Grid3x3 className="h-5 w-5" />
-            Gantt Chart - MS Project View
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-3 px-3 sm:px-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="hidden sm:inline">Gantt Chart - MS Project View</span>
+            <span className="sm:hidden">Gantt Chart</span>
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => setScale(Math.max(5, scale - 5))}
               title="Zoom Out"
+              className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 p-0"
             >
               <ZoomOut className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1">Out</span>
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => setScale(Math.min(50, scale + 5))}
               title="Zoom In"
+              className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 p-0"
             >
               <ZoomIn className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1">In</span>
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => setScale(20)}
               title="Reset Zoom"
+              className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 p-0"
             >
               <Maximize2 className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1">Reset</span>
             </Button>
           </div>
         </div>
-        <div className="text-sm text-gray-600 mt-2">
-          <span className="inline-flex items-center gap-2">
-            <span className="w-3 h-3 bg-red-600 rounded"></span> Critical Path
-            <span className="w-3 h-3 bg-blue-600 rounded ml-3"></span> In Progress
-            <span className="w-3 h-3 bg-green-600 rounded ml-3"></span> Completed
-            <span className="w-3 h-3 bg-gray-600 rounded ml-3"></span> Not Started
+        <div className="text-xs sm:text-sm text-gray-600 mt-2">
+          <span className="inline-flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 sm:w-3 sm:h-3 bg-red-600 rounded"></span>
+              <span className="hidden sm:inline">Critical Path</span>
+              <span className="sm:hidden">Critical</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-600 rounded"></span>
+              <span className="hidden sm:inline">In Progress</span>
+              <span className="sm:hidden">Progress</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 sm:w-3 sm:h-3 bg-green-600 rounded"></span>
+              <span>Completed</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 sm:w-3 sm:h-3 bg-gray-600 rounded"></span>
+              <span className="hidden sm:inline">Not Started</span>
+              <span className="sm:hidden">Pending</span>
+            </span>
           </span>
         </div>
       </CardHeader>
@@ -447,9 +469,12 @@ export default function GanttChart({ activities, projectStartDate, onActivityCli
         <div 
           ref={containerRef}
           className="overflow-auto border rounded-lg"
-          style={{ maxHeight: '600px', cursor: 'grab' }}
+          style={{ maxHeight: '400px', cursor: 'grab' }}
           onWheel={handleWheel}
         >
+          <div className="sm:hidden text-xs text-center p-2 bg-gray-50 border-b">
+            Scroll horizontally to view timeline
+          </div>
           <canvas
             ref={canvasRef}
             className="block"
