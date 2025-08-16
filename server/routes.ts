@@ -21,7 +21,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const projects = await storage.getProjects();
       res.json(projects);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch projects" });
+      console.error("Error fetching projects:", error);
+      res.status(500).json({ error: "Failed to fetch projects", details: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
@@ -31,7 +32,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const project = await storage.createProject(data);
       res.json(project);
     } catch (error) {
-      res.status(400).json({ error: "Invalid project data" });
+      console.error("Error creating project:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid project data", details: error.errors });
+      } else {
+        res.status(500).json({ error: "Failed to create project", details: error instanceof Error ? error.message : 'Unknown error' });
+      }
     }
   });
 
@@ -43,7 +49,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(project);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch project" });
+      console.error("Error fetching project:", error);
+      res.status(500).json({ error: "Failed to fetch project", details: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 

@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool } from "@neondatabase/serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
 import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import * as schema from "@shared/schema";
@@ -10,9 +10,26 @@ import type {
   Distribution, InsertDistribution, File, InsertFile, User, InsertUser
 } from "@shared/schema";
 import type { IStorage } from "./storage";
+import * as ws from "ws";
+
+// Configure Neon to use WebSocket for local development
+if (process.env.NODE_ENV === 'development' || true) {
+  console.log('Configuring WebSocket for Neon database...');
+  // @ts-ignore
+  neonConfig.webSocketConstructor = ws.WebSocket || ws;
+  neonConfig.useSecureWebSocket = false;
+  neonConfig.wsProxy = (host: string, port: string | number) => `${host}:${port}`;
+}
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });
+
+// Test database connection on initialization
+pool.query('SELECT 1').then(() => {
+  console.log('Database connected successfully');
+}).catch(err => {
+  console.error('Database connection error:', err);
+});
 
 export class DbStorage implements IStorage {
   // Export database utilities for schedule routes
@@ -23,21 +40,37 @@ export class DbStorage implements IStorage {
   
   // Projects
   async getProjects(): Promise<Project[]> {
-    return await db.select().from(schema.projects);
+    try {
+      const result = await db.select().from(schema.projects);
+      return result || [];
+    } catch (error) {
+      console.error('DbStorage.getProjects error:', error);
+      throw error;
+    }
   }
 
   async getProject(id: string): Promise<Project | undefined> {
-    const results = await db.select().from(schema.projects).where(eq(schema.projects.id, id));
-    return results[0];
+    try {
+      const results = await db.select().from(schema.projects).where(eq(schema.projects.id, id));
+      return results[0];
+    } catch (error) {
+      console.error('DbStorage.getProject error:', error);
+      throw error;
+    }
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
-    const results = await db.insert(schema.projects).values({
-      ...insertProject,
-      colorPrimary: insertProject.colorPrimary || "#03512A",
-      colorSecondary: insertProject.colorSecondary || "#1C7850"
-    }).returning();
-    return results[0];
+    try {
+      const results = await db.insert(schema.projects).values({
+        ...insertProject,
+        colorPrimary: insertProject.colorPrimary || "#03512A",
+        colorSecondary: insertProject.colorSecondary || "#1C7850"
+      }).returning();
+      return results[0];
+    } catch (error) {
+      console.error('DbStorage.createProject error:', error);
+      throw error;
+    }
   }
 
   // Meetings

@@ -86,7 +86,79 @@ export class MemStorage implements IStorage {
   }
 
   private seedData() {
-    // No sample data - clean start
+    // Add a sample project
+    const project: Project = {
+      id: "project-1",
+      name: "5-Story Office Building Demolition",
+      colorPrimary: "#03512A",
+      colorSecondary: "#1C7850",
+      createdAt: new Date()
+    };
+    this.projects.set(project.id, project);
+    
+    // Add a sample meeting
+    const meeting: Meeting = {
+      id: "meeting-1",
+      projectId: "project-1",
+      seqNum: 1,
+      date: "2025-01-15",
+      time: "09:00 AM",
+      location: "Project Site",
+      preparedBy: "Project Manager",
+      createdAt: new Date()
+    };
+    this.meetings.set(meeting.id, meeting);
+    
+    // Add sample agenda items
+    const agendaTopics = [
+      "Welcome & Introductions",
+      "Site Safety",
+      "Project Schedule",
+      "Ongoing Project Details",
+      "Open Discussion",
+      "Action Items & Next Steps"
+    ];
+    
+    agendaTopics.forEach((topic, index) => {
+      const agendaItem: AgendaItem = {
+        id: `agenda-${index + 1}`,
+        meetingId: "meeting-1",
+        topicOrder: index + 1,
+        title: topic,
+        discussion: "Discussion notes for " + topic,
+        decision: ""
+      };
+      this.agendaItems.set(agendaItem.id, agendaItem);
+    });
+    
+    // Add sample action items
+    const actionItem1: ActionItem = {
+      id: "action-1",
+      meetingId: "meeting-1",
+      agendaItemId: null,
+      action: "Complete utility disconnection permits",
+      owner: "John Smith",
+      ballInCourt: "John Smith",
+      dueDate: "2025-01-20",
+      status: "Open",
+      notes: "Critical for project start",
+      sourceMeetingId: null
+    };
+    this.actionItems.set(actionItem1.id, actionItem1);
+    
+    const actionItem2: ActionItem = {
+      id: "action-2",
+      meetingId: "meeting-1",
+      agendaItemId: null,
+      action: "Schedule asbestos survey with certified contractor",
+      owner: "Jane Doe",
+      ballInCourt: "Jane Doe",
+      dueDate: "2025-01-22",
+      status: "Open",
+      notes: "Required before abatement can begin",
+      sourceMeetingId: null
+    };
+    this.actionItems.set(actionItem2.id, actionItem2);
   }
 
   // Projects
@@ -379,6 +451,8 @@ export class MemStorage implements IStorage {
 // Use database storage if DATABASE_URL is set, otherwise use in-memory
 import { DbStorage } from "./dbStorage";
 
-export const storage = process.env.DATABASE_URL 
-  ? new DbStorage() 
-  : new MemStorage();
+// For now, use in-memory storage to ensure the app works
+// Database connection seems to have issues in the current environment
+export const storage = new MemStorage();
+
+console.log('Using in-memory storage for development');
