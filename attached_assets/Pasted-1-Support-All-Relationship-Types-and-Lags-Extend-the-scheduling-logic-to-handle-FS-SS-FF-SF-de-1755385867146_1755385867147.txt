@@ -1,0 +1,55 @@
+1. Support All Relationship Types and Lags: Extend the scheduling logic to handle FS, SS, FF, SF
+dependencies with lead/lag times. Currently, the CPM calculation assumes finish-to-start with zero lag for all
+predecessors . Update the data model for predecessors to include relationship type and lag (e.g. parse
+input like "A002SS+3" into a predecessor link to A002 with a Start-to-Start relation and +3 day lag).
+Modify the calculateCPM function to apply these offsets: for SS and SF relations, an activity’s early start/
+finish should be compared to predecessor start or finish times as appropriate, and lag days should shift
+the start or finish accordingly. This will allow overlapping starts, finish-to-finish constraints, and lead/lag
+adjustments in the schedule calculations. Ensure that when exporting to XER or XML, the correct
+relationship types and lags are saved (right now all exported preds default to FS with 0 lag ). With this
+change, the predecessor Textarea input (which hints at “FS/SS/SF/FF” syntax) will be fully functional , and
+the critical path calculation will be accurate for complex logic.
+2. Enforce Scheduling Constraints and Deadlines: Implement logic for date constraints like Start No
+Earlier Than (SNET), Finish No Later Than (FNLT), Must Start On/Must Finish On, etc., as well as
+Deadlines. The UI already captures constraintType and constraintDate for each activity , but
+these are not used in scheduling. Update the CPM algorithm to honor constraints: e.g., if an activity has a
+SNET constraint, set its early start to the constraint date if the calculated early start is earlier; for FNLT or
+deadlines, calculate and warn if the late finish exceeds the constraint. Must Start/Finish On constraints
+should override computed dates to that exact date. Add validation/warning messages for “impossible”
+constraints (e.g., SNET after FNLT, or logic that conflicts with a constraint). This will align the app with P6/
+MSP behavior by preventing the schedule from violating explicit start/finish targets. In the UI, you might
+show an indicator (exclamation icon) next to tasks that are not meeting their constraints or deadlines.
+3. Implement Work Calendars and Non-Working Time: Introduce support for calendars (global, project,
+resource, and activity-specific calendars) to model working days, weekends, holidays, and shifts. Currently
+all durations are treated as consecutive days with an implicit 5-day workweek in some calculations (e.g., XER
+export multiplies days by 8 hours ). Create a calendar module where users can define calendars (with
+workweek hours and holiday exceptions). Modify duration calculations and date advancement to skip nonworking
+days on an activity’s assigned calendar. For example, if an activity has a 5-day duration and its
+calendar has weekends off, its finish date should be 7 calendar days after its start. This will require changes
+to how calculateCPM adds days for early start/finish – instead of simple arithmetic, iterate through a
+calendar to count workdays. Allow setting a calendar on each activity (default to a Standard 5d/week
+calendar) and perhaps on each resource (for future leveling). This feature ensures schedules are realistic by
+not counting non-working periods as productive time.
+4. Handle Data Date and Out-of-Sequence Progress: Enhance the update/progress model to respect the
+Data Date (status date) and allow out-of-sequence progress handling options. Currently, activities can be
+marked “In Progress” or “Completed” with Actual Start/Finish dates , but the engine doesn’t adjust
+the network for actualized tasks. Implement logic to split or modify remaining durations when progress is
+reported. If the Data Date (the cut-off date for progress) falls in the middle of an activity, split the task into
+“actual” and “remaining” parts or at least ensure that any successor can start after the Data Date if its
+predecessor is partially done. Detect out-of-sequence situations (where a successor starts before a
+1
+30
+2
+3
+31
+32 33
+3
+predecessor finishes). Provide a toggle (project-level setting) for Retained Logic vs Progress Override: in
+Retained Logic, successors respect original logic (so they wait until the predecessor’s remaining part
+finishes, causing a gap if started out-of-sequence); in Progress Override, allow successors to continue from
+the actual dates disregarding the unfinished logic. Implementing this will involve adjusting how early dates
+are computed: use the Data Date as a minimum start for incomplete work and decide whether to enforce
+predecessor remaining durations or not. Also, when updating status, if an activity is completed, ensure all
+its successors get their early starts updated relative to that actual finish. This improvement aligns the app
+with professional scheduling practices for status updates and prevents unrealistic timeline calculations once
+actual progress is entered.
