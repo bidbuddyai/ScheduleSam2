@@ -1,0 +1,30 @@
+<svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="48" height="48" rx="8" fill="#ffffff"/>
+  <defs>
+    <linearGradient id="helmetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ea580c;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="calendarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Construction Helmet -->
+  <path d="M24 8C17 8 12 11 12 16V21C12 22.5 13 23 14.5 23H33.5C35 23 36 22.5 36 21V16C36 11 31 8 24 8Z" fill="url(#helmetGrad)"/>
+  <path d="M16 16H32V17.5H16V16Z" fill="#fbbf24"/>
+  <path d="M21 12H27V16H21V12Z" fill="#ffffff" opacity="0.9"/>
+  
+  <!-- Calendar -->
+  <rect x="17" y="25" width="14" height="14" rx="2" fill="url(#calendarGrad)"/>
+  <rect x="19" y="28" width="10" height="9" fill="#ffffff"/>
+  
+  <!-- Calendar grid dots -->
+  <rect x="20.5" y="30" width="2" height="2" fill="#3b82f6"/>
+  <rect x="23" y="30" width="2" height="2" fill="#3b82f6"/>
+  <rect x="25.5" y="30" width="2" height="2" fill="#3b82f6"/>
+  <rect x="20.5" y="33" width="2" height="2" fill="#3b82f6"/>
+  <rect x="23" y="33" width="2" height="2" fill="#f97316"/>
+  <rect x="25.5" y="33" width="2" height="2" fill="#3b82f6"/>
+</svg>

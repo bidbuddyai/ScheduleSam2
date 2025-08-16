@@ -1,6 +1,6 @@
 # Overview
 
-Adams & Grand Demolition Weekly Progress Meetings is a production-ready web application designed for managing demolition project meetings. The system provides structured meeting workflows with a standardized 6-topic agenda format, comprehensive tracking of action items, site safety, and project progress. The application integrates AI assistance through Poe's OpenAI-compatible API to help automate meeting tasks, generate summaries, and assist with project management workflows.
+MeetBud is a production-ready web application designed for managing construction project meetings. The system provides structured meeting workflows with a standardized 6-topic agenda format, comprehensive tracking of action items, site safety, and project progress. The application integrates AI assistance through Poe's OpenAI-compatible API to help automate meeting tasks, generate summaries, and assist with project management workflows.
 
 # User Preferences
 
@@ -17,7 +17,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Frontend Architecture
 - **Framework**: React 18 with TypeScript for type safety and modern development patterns
-- **Styling**: Tailwind CSS with Adams & Grand brand colors, using Shadcn/UI component library for consistent design system
+- **Styling**: Tailwind CSS with MeetBud brand colors (orange and blue theme), using Shadcn/UI component library for consistent design system
 - **State Management**: TanStack Query for server state management and caching, React Hook Form with Zod validation for form handling
 - **Routing**: Wouter for lightweight client-side routing
 - **Build Tool**: Vite for fast development and optimized production builds
@@ -42,7 +42,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Meeting Workflow Architecture
 - **Sequential Meetings**: Automatic meeting numbering and carry-forward logic for action items
-- **6-Topic Demolition Agenda**: Standardized agenda structure tailored for demolition projects:
+- **6-Topic Construction Agenda**: Standardized agenda structure tailored for construction projects:
   1. Welcome & Introductions
   2. Site Safety
   3. Project Schedule

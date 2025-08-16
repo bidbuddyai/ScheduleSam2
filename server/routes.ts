@@ -552,7 +552,7 @@ Format as JSON with:
         // Generate formatted meeting minutes
         const minutes = {
           header: {
-            company: "Adams & Grand Demolition",
+            company: "MeetBud",
             title: `Weekly Progress Meeting #${meeting.seqNum}`,
             project: project?.name,
             date: meeting.date,
@@ -603,7 +603,7 @@ Format as JSON with:
         storage.getAttendanceByMeeting(meeting.id)
       ]);
       
-      const prompt = `Generate professional meeting minutes for Adams & Grand Demolition Meeting #${meeting.seqNum}.
+      const prompt = `Generate professional meeting minutes for MeetBud Meeting #${meeting.seqNum}.
 Attendees: ${attendance.filter(a => a.presentBool).map(a => a.name).join(', ')}
 
 Agenda Items:

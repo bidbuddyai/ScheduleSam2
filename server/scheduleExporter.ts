@@ -350,7 +350,7 @@ export class PDFScheduleExporter {
   
   <div class="footer">
     <p>Generated on ${new Date().toLocaleString()}</p>
-    <p>Adams & Grand Demolition - Construction Schedule Management System</p>
+    <p>MeetBud - Construction Schedule Management System</p>
   </div>
 </body>
 </html>`;

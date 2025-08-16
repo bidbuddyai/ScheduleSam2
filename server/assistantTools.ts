@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const SYSTEM_ASSISTANT = `
-You are the embedded project assistant and CPM scheduling expert for "Adams & Grand Demolition".
+You are the embedded project assistant and CPM scheduling expert for MeetBud.
 Return ONLY JSON matching the provided "tool" schema.
 Never include Markdown or prose unless in the optional "speak" field.
 

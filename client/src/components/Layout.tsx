@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import Logo from "@/components/Logo";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,38 +11,32 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       {/* Header */}
-      <header className="bg-brand-primary text-white shadow-lg">
+      <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                <i className="fas fa-hard-hat text-white text-lg"></i>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">Adams & Grand Demolition</h1>
-                <p className="text-green-100 text-sm">Weekly Progress Meetings</p>
-              </div>
-            </div>
+            <Link href="/" className="block">
+              <Logo size="lg" variant="full" />
+            </Link>
             <nav className="hidden md:flex items-center space-x-6">
               <Link
                 href="/projects"
                 className={`transition-colors ${
                   location === "/projects" || location === "/"
-                    ? "text-white font-medium"
-                    : "text-green-100 hover:text-white"
+                    ? "text-orange-600 font-medium"
+                    : "text-gray-600 hover:text-orange-600"
                 }`}
                 data-testid="nav-projects"
               >
                 Projects
               </Link>
-              <a href="#" className="text-green-100 hover:text-white transition-colors">
+              <a href="#" className="text-gray-600 hover:text-orange-600 transition-colors">
                 Calendar
               </a>
               <div className="flex items-center space-x-2 ml-6">
-                <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                  <i className="fas fa-user text-sm"></i>
+                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                  <i className="fas fa-user text-sm text-gray-600"></i>
                 </div>
-                <span className="text-sm">John Smith</span>
+                <span className="text-sm text-gray-700">John Smith</span>
               </div>
             </nav>
           </div>
@@ -51,17 +46,17 @@ export default function Layout({ children }: LayoutProps) {
       {children}
 
       {/* Footer */}
-      <footer className="bg-brand-primary text-white">
+      <footer className="bg-gray-800 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-sm text-green-100">© 2024 Adams & Grand Demolition. All rights reserved.</p>
+              <p className="text-sm text-gray-300">© 2024 MeetBud. All rights reserved.</p>
             </div>
             <div className="flex items-center space-x-4 text-sm">
-              <span className="text-green-100">Last saved: 2 minutes ago</span>
+              <span className="text-gray-300">Last saved: 2 minutes ago</span>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span className="text-green-100">Connected</span>
+                <span className="text-gray-300">Connected</span>
               </div>
             </div>
           </div>
