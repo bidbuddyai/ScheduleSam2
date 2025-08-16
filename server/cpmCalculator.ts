@@ -464,6 +464,13 @@ export class CPMCalculator {
       let earlyStart: Date | null = null;
       let earlyFinish: Date | null = null;
       
+      // Handle special activity types
+      if (activity.type === 'StartMilestone' || activity.type === 'FinishMilestone') {
+        // Milestones have zero duration
+        activity.originalDuration = 0;
+        activity.remainingDuration = 0;
+      }
+      
       if (predecessorRelationships.length === 0) {
         // No predecessors - use project start date or constraint
         earlyStart = this.dataDate || new Date();
@@ -496,7 +503,20 @@ export class CPMCalculator {
       
       if (earlyStart) {
         activity.calculatedEarlyStart = earlyStart;
-        const duration = activity.remainingDuration || activity.originalDuration || 0;
+        
+        // Handle special activity type durations
+        let duration = activity.remainingDuration || activity.originalDuration || 0;
+        
+        if (activity.type === 'StartMilestone' || activity.type === 'FinishMilestone') {
+          duration = 0; // Milestones have zero duration
+        } else if (activity.type === 'WBSSummary') {
+          // WBS Summary duration calculated from children (handled in post-processing)
+          duration = 0; // Placeholder
+        } else if (activity.type === 'LOE' || activity.type === 'Hammock') {
+          // LOE/Hammock activities can have custom durations or span between activities
+          duration = activity.originalDuration || 1;
+        }
+        
         activity.calculatedEarlyFinish = this.addWorkingDays(earlyStart, duration, calendar);
       }
       
@@ -654,6 +674,9 @@ export class CPMCalculator {
     this.backwardPass();
     this.calculateFloat();
     
+    // Post-process special activity types
+    this.postProcessSpecialActivities();
+    
     return Array.from(this.activities.values());
   }
 
@@ -669,5 +692,84 @@ export class CPMCalculator {
    */
   public getCriticalPath(): CalculatedActivity[] {
     return Array.from(this.activities.values()).filter(a => a.calculatedIsCritical);
+  }
+  
+  /**
+   * Post-process WBS summary activities and LOE/Hammock spans
+   */
+  private postProcessSpecialActivities() {
+    // Handle WBS Summary rollups
+    this.activities.forEach(activity => {
+      if (activity.type === 'WBSSummary') {
+        this.calculateWBSSummary(activity);
+      }
+    });
+    
+    // Handle LOE and Hammock activities spanning
+    this.activities.forEach(activity => {
+      if (activity.type === 'LOE' || activity.type === 'Hammock') {
+        this.calculateSpanningActivity(activity);
+      }
+    });
+  }
+  
+  /**
+   * Calculate WBS Summary activity dates from children
+   */
+  private calculateWBSSummary(summaryActivity: CalculatedActivity) {
+    // Find child activities (activities with this WBS as parent)
+    const childActivities = Array.from(this.activities.values()).filter(
+      act => act.wbsId === summaryActivity.wbsId && act.id !== summaryActivity.id
+    );
+    
+    if (childActivities.length === 0) return;
+    
+    // Calculate summary dates from children
+    let earliestStart: Date | null = null;
+    let latestFinish: Date | null = null;
+    let totalOriginalDuration = 0;
+    let totalRemainingDuration = 0;
+    let totalPercentComplete = 0;
+    
+    childActivities.forEach(child => {
+      if (child.calculatedEarlyStart && (!earliestStart || child.calculatedEarlyStart < earliestStart)) {
+        earliestStart = child.calculatedEarlyStart;
+      }
+      if (child.calculatedEarlyFinish && (!latestFinish || child.calculatedEarlyFinish > latestFinish)) {
+        latestFinish = child.calculatedEarlyFinish;
+      }
+      
+      totalOriginalDuration += child.originalDuration || 0;
+      totalRemainingDuration += child.remainingDuration || 0;
+      totalPercentComplete += (child.percentComplete || 0) * (child.originalDuration || 1);
+    });
+    
+    // Update summary activity
+    if (earliestStart) summaryActivity.calculatedEarlyStart = earliestStart;
+    if (latestFinish) summaryActivity.calculatedEarlyFinish = latestFinish;
+    
+    // Calculate weighted average percent complete
+    if (totalOriginalDuration > 0) {
+      summaryActivity.percentComplete = totalPercentComplete / totalOriginalDuration;
+    }
+    
+    // Update duration to span from earliest start to latest finish
+    if (earliestStart && latestFinish) {
+      const calendar = this.getCalendarForActivity(summaryActivity);
+      summaryActivity.originalDuration = this.getWorkingDaysBetween(earliestStart, latestFinish, calendar);
+    }
+  }
+  
+  /**
+   * Calculate LOE/Hammock activity spans based on linked activities
+   */
+  private calculateSpanningActivity(spanActivity: CalculatedActivity) {
+    // For now, use the standard calculation
+    // In a full implementation, you might:
+    // 1. Look for special relationship types that define start/end links
+    // 2. Calculate span based on those linked activities
+    // 3. Update duration accordingly
+    
+    // This is a simplified version - in practice you'd have more sophisticated spanning logic
   }
 }

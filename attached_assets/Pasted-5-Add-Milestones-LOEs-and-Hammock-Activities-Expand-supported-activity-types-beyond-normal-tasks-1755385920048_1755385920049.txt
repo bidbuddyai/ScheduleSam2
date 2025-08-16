@@ -1,0 +1,39 @@
+5. Add Milestones, LOEs, and Hammock Activities: Expand supported activity types beyond normal tasks.
+Milestones (start or finish milestones) should be zero-duration activities that mark significant events –
+ensure the UI can designate a task as a milestone (perhaps automatically when duration is set to 0) and
+handle it accordingly (no bar length on Gantt, always critical if driving). Implement Level of Effort (LOE) or
+hammock activities which span between other tasks: their start/finish are tied to the start of one activity
+and finish of another (often used for ongoing overhead work). This could be done by introducing a special
+relationship type or flags in the data model – for example, an LOE activity might have its start driven by a
+predecessor and finish driven by a successor. Auto-calculate LOE durations accordingly (update their
+duration after each schedule recalculation). Similarly, support WBS Summary tasks (tasks that summarize a
+WBS branch). WBS summary durations can be auto-calculated as the span (early start to late finish) of their
+children tasks. You may need to treat such summary activities as read-only for start/finish in the UI. Adding
+these types will make the tool comparable to MS Project/P6: milestones for key dates, LOEs for ongoing
+efforts (like supervision, project management), and hammock tasks for things like rent or overhead that
+depend on project start/finish.
+6. WBS Hierarchy and Indented Outline View: Implement an indented WBS hierarchy for activities. Users
+should be able to create a tree of phases and sub-tasks (multi-level WBS). In the UI, add controls to indent/
+outdent selected tasks, which will assign them a WBS parent. This requires adding a parent task reference
+or a WBS code structure in the data model (the WBS field exists , but currently it’s just a code string, not
+enforcing hierarchy). When tasks are indented under a parent, mark the parent as a Summary Task (with its
+own dates auto-calculated from its children). Update the Gantt chart to draw summary bars and collapse/
+expand groups. Also, update the PDF/HTML export to show hierarchy (for example, indent activity names
+under their phases and perhaps bold summary tasks). Implement roll-up of % complete at summary level
+(e.g., a summary task’s % complete could be weight-averaged by child durations or simply not directly
+editable by users). A robust WBS feature will improve organization for large projects and enable grouping/
+filtering by hierarchical phases.
+7. Activity Codes and Custom Fields for Filtering/Grouping: Introduce user-defined Activity Codes or
+custom fields that allow classification of tasks (similar to P6’s global/project codes or MSP’s custom text/
+number fields). For instance, a “Trade” or “Department” field could be assigned to each task. Provide a UI for
+managing these codes (e.g., define a list of trades or categories and assign to activities). With these codes in
+place, implement powerful filter, sort, and group functions: allow the user to filter the schedule to only
+show tasks matching certain criteria (e.g., only tasks for “Electrical” trade or only “Critical” tasks, etc.), and
+group or sort the task list by those codes, WBS, start dates, float, etc. The front-end can add a filter panel or
+use the existing table sorting capabilities. On the backend, ensure the codes are stored (you might extend
+the database schema to store additional fields or a JSON of custom fields). This improvement lets users slice
+the schedule data in meaningful ways, such as focusing on a specific subcontractor’s activities or generating
+34
+4
+a near-critical tasks report. It complements the “near-critical path filtering” goal and the general need for
+better navigability in large projects.

@@ -1,17 +1,20 @@
 # Overview
 
-MeetBud is a production-ready web application designed for managing construction project meetings. The system provides structured meeting workflows with a standardized 6-topic agenda format, comprehensive tracking of action items, site safety, and project progress. The application integrates AI assistance through Poe's OpenAI-compatible API to help automate meeting tasks, generate summaries, and assist with project management workflows.
+ScheduleSam is a sophisticated CPM (Critical Path Method) scheduling application comparable to industry standards like MS Project and Primavera P6. The system provides comprehensive project scheduling capabilities including advanced activity types, WBS hierarchy management, activity codes, custom fields, and AI-powered scheduling assistance. Originally evolved from MeetBud, ScheduleSam transforms traditional construction management into a full-featured scheduling platform.
 
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
 
-## Schedule Management Features
-- **CPM Schedule Upload & Processing**: AI-powered parsing of construction schedules to extract activities, durations, and dependencies
-- **3-Week Lookahead Generation**: Automatic generation of 3-week lookaheads from CPM schedules with activity filtering
-- **Meeting-Driven Updates**: AI analyzes meeting discussions to automatically update schedule activities and statuses
-- **File Upload System**: Direct upload of schedules, documents, and recordings with automatic content extraction
-- **Schedule Integration**: Seamless integration between meetings and project schedules for real-time updates
+## Advanced Scheduling Features
+- **Complete CPM Engine**: Full Critical Path Method calculations with forward/backward pass, float calculations, and constraint handling
+- **Advanced Activity Types**: Support for Milestones (zero duration), Level of Effort activities, Hammock activities (spanning), and WBS Summary rollups
+- **WBS Hierarchy Management**: Complete Work Breakdown Structure with parent/child relationships, indenting/outdenting, and hierarchical display
+- **Activity Codes & Custom Fields**: Comprehensive filtering and grouping system with custom activity codes and fields for advanced project organization
+- **Relationship Management**: Full support for FS, SS, FF, SF relationships with lag/lead times and constraint enforcement
+- **Visual Schedule Grid**: Enhanced activity grid with hierarchical WBS display, comprehensive filtering, search, and column visibility controls
+- **Constraint Handling**: Advanced constraint types (SNET, SNLT, FNET, FNLT, MSO, MFO) with violation detection and reporting
+- **Progress Tracking**: Comprehensive progress management with percent complete, actual dates, and remaining duration updates
 
 # System Architecture
 

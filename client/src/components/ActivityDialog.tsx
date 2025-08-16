@@ -16,7 +16,16 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Activity, Wbs, Calendar, Relationship } from "@shared/schema";
 import type { z } from "zod";
-import { AlertTriangle, Calendar as CalendarIcon, Target, Users } from "lucide-react";
+import { AlertTriangle, Calendar as CalendarIcon, Target, Users, Info } from "lucide-react";
+
+const activityTypes = [
+  { value: "Task", label: "Task", description: "Standard work activity with duration", icon: Target },
+  { value: "StartMilestone", label: "Start Milestone", description: "Zero-duration start event", icon: Target },
+  { value: "FinishMilestone", label: "Finish Milestone", description: "Zero-duration finish event", icon: Target },
+  { value: "LOE", label: "Level of Effort", description: "Ongoing effort activity", icon: Users },
+  { value: "Hammock", label: "Hammock", description: "Activity spanning between other tasks", icon: Users },
+  { value: "WBSSummary", label: "WBS Summary", description: "Summary of subordinate activities", icon: Users }
+];
 
 type InsertActivityForm = z.infer<typeof insertActivitySchema>;
 
@@ -41,6 +50,8 @@ export default function ActivityDialog({
 }: ActivityDialogProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("general");
+  const [activityCodes, setActivityCodes] = useState<Record<string, string>>({});
+  const [customFields, setCustomFields] = useState<Record<string, string>>({});
 
   // Fetch existing activity data if editing
   const { data: activity, isLoading } = useQuery<Activity>({
@@ -220,14 +231,7 @@ export default function ActivityDialog({
     { value: "MFO", label: "Must Finish On" }
   ];
 
-  const activityTypes = [
-    { value: "TaskDependent", label: "Task Dependent" },
-    { value: "ResourceDependent", label: "Resource Dependent" },
-    { value: "LevelOfEffort", label: "Level of Effort" },
-    { value: "StartMilestone", label: "Start Milestone" },
-    { value: "FinishMilestone", label: "Finish Milestone" },
-    { value: "WBSSummary", label: "WBS Summary" }
-  ];
+  // Use the activityTypes defined at module level
 
   const statuses = [
     { value: "NotStarted", label: "Not Started" },
@@ -272,10 +276,12 @@ export default function ActivityDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 overflow-hidden flex flex-col">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="general">General</TabsTrigger>
                 <TabsTrigger value="schedule">Schedule</TabsTrigger>
                 <TabsTrigger value="constraints">Constraints</TabsTrigger>
+                <TabsTrigger value="codes">Activity Codes</TabsTrigger>
+                <TabsTrigger value="custom">Custom Fields</TabsTrigger>
                 <TabsTrigger value="resources">Resources</TabsTrigger>
                 <TabsTrigger value="progress">Progress</TabsTrigger>
               </TabsList>
@@ -312,7 +318,13 @@ export default function ActivityDialog({
                             <SelectContent>
                               {activityTypes.map((type) => (
                                 <SelectItem key={type.value} value={type.value}>
-                                  {type.label}
+                                  <div className="flex items-center space-x-2">
+                                    <type.icon className="w-4 h-4" />
+                                    <div className="flex flex-col">
+                                      <span>{type.label}</span>
+                                      <span className="text-xs text-gray-500">{type.description}</span>
+                                    </div>
+                                  </div>
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -797,6 +809,140 @@ export default function ActivityDialog({
                         </FormItem>
                       )}
                     />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="codes" className="space-y-4 mt-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium">Activity Codes</h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const key = prompt("Enter activity code name:");
+                          const value = prompt("Enter activity code value:");
+                          if (key && value) {
+                            setActivityCodes({...activityCodes, [key]: value});
+                          }
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Code
+                      </Button>
+                    </div>
+                    
+                    <div className="grid gap-4">
+                      {Object.entries(activityCodes).map(([key, value]) => (
+                        <div key={key} className="flex items-center space-x-2">
+                          <Input
+                            value={key}
+                            onChange={(e) => {
+                              const newCodes = {...activityCodes};
+                              delete newCodes[key];
+                              newCodes[e.target.value] = value;
+                              setActivityCodes(newCodes);
+                            }}
+                            placeholder="Code name"
+                            className="flex-1"
+                          />
+                          <Input
+                            value={value}
+                            onChange={(e) => setActivityCodes({...activityCodes, [key]: e.target.value})}
+                            placeholder="Code value"
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const newCodes = {...activityCodes};
+                              delete newCodes[key];
+                              setActivityCodes(newCodes);
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      {Object.keys(activityCodes).length === 0 && (
+                        <div className="text-center text-gray-500 py-4">
+                          <Code2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p>No activity codes defined</p>
+                          <p className="text-sm">Add codes for filtering and grouping activities</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="custom" className="space-y-4 mt-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium">Custom Fields</h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const key = prompt("Enter field name:");
+                          const value = prompt("Enter field value:");
+                          if (key && value) {
+                            setCustomFields({...customFields, [key]: value});
+                          }
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Field
+                      </Button>
+                    </div>
+                    
+                    <div className="grid gap-4">
+                      {Object.entries(customFields).map(([key, value]) => (
+                        <div key={key} className="flex items-center space-x-2">
+                          <Input
+                            value={key}
+                            onChange={(e) => {
+                              const newFields = {...customFields};
+                              delete newFields[key];
+                              newFields[e.target.value] = value;
+                              setCustomFields(newFields);
+                            }}
+                            placeholder="Field name"
+                            className="flex-1"
+                          />
+                          <Input
+                            value={value}
+                            onChange={(e) => setCustomFields({...customFields, [key]: e.target.value})}
+                            placeholder="Field value"
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const newFields = {...customFields};
+                              delete newFields[key];
+                              setCustomFields(newFields);
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      {Object.keys(customFields).length === 0 && (
+                        <div className="text-center text-gray-500 py-4">
+                          <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p>No custom fields defined</p>
+                          <p className="text-sm">Add custom fields for additional activity data</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </TabsContent>
               </div>

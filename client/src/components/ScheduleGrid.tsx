@@ -18,7 +18,14 @@ import {
   Target,
   Calendar,
   Filter,
-  Eye
+  Eye,
+  ChevronRight,
+  ChevronDown,
+  Indent,
+  Outdent,
+  Code2,
+  Plus,
+  Search
 } from "lucide-react";
 
 interface ScheduleGridProps {
@@ -51,11 +58,79 @@ export default function ScheduleGrid({
     predecessors: true,
     constraints: true,
     responsibility: true,
-    trade: true
+    trade: true,
+    wbs: true,
+    activityCodes: false,
+    customFields: false
   });
+  
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedActivityCodes, setSelectedActivityCodes] = useState<string[]>([]);
+  const [expandedWBS, setExpandedWBS] = useState<Set<string>>(new Set());
+  
+  // Extract unique activity codes and custom field keys for filtering
+  const availableActivityCodes = Array.from(
+    new Set(
+      activities
+        .flatMap(a => a.activityCodes ? Object.keys(a.activityCodes as any) : [])
+    )
+  );
+  
+  const availableCustomFields = Array.from(
+    new Set(
+      activities
+        .flatMap(a => a.customFields ? Object.keys(a.customFields as any) : [])
+    )
+  );
 
   // Create a map of WBS items for quick lookup
   const wbsMap = new Map(wbs.map(w => [w.id, w]));
+
+  // Create hierarchical activity display with WBS grouping
+  const getActivityDisplayLevel = (activity: Activity): number => {
+    if (!activity.wbsId) return 0;
+    const wbsItem = wbsMap.get(activity.wbsId);
+    return wbsItem ? wbsItem.level : 0;
+  };
+  
+  const toggleWBSExpansion = (wbsId: string) => {
+    const newExpanded = new Set(expandedWBS);
+    if (newExpanded.has(wbsId)) {
+      newExpanded.delete(wbsId);
+    } else {
+      newExpanded.add(wbsId);
+    }
+    setExpandedWBS(newExpanded);
+  };
+  
+  // Filter and sort activities
+  const filteredActivities = activities.filter(activity => {
+    // Search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      if (!activity.name.toLowerCase().includes(searchLower) && 
+          !activity.activityId.toLowerCase().includes(searchLower) &&
+          !activity.responsibility?.toLowerCase().includes(searchLower) &&
+          !activity.trade?.toLowerCase().includes(searchLower)) {
+        return false;
+      }
+    }
+    
+    // Status/type filters
+    if (filter === 'critical' && !activity.isCritical) return false;
+    if (filter === 'in-progress' && activity.status !== 'InProgress') return false;
+    if (filter === 'constrained' && !activity.constraintType) return false;
+    
+    // Activity codes filter
+    if (selectedActivityCodes.length > 0) {
+      const activityCodes = activity.activityCodes as any;
+      if (!activityCodes || !selectedActivityCodes.some(code => code in activityCodes)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
 
   // Create a map of relationships for predecessor/successor lookup
   const getPredecessors = (activityId: string) => {
@@ -89,21 +164,9 @@ export default function ScheduleGrid({
       .join(', ');
   };
 
-  // Filter activities based on selected filter
-  const filteredActivities = activities.filter(activity => {
-    switch (filter) {
-      case 'critical':
-        return activity.isCritical;
-      case 'in-progress':
-        return activity.status === 'InProgress';
-      case 'constrained':
-        return activity.constraintType && activity.constraintDate;
-      default:
-        return true;
-    }
-  });
+  // Additional status/type filters are applied in the main filteredActivities above
 
-  // Sort activities
+  // Sort filtered activities
   const sortedActivities = [...filteredActivities].sort((a, b) => {
     switch (sortBy) {
       case 'activityId':
@@ -177,8 +240,31 @@ export default function ScheduleGrid({
             </Badge>
           </CardTitle>
           <div className="flex items-center space-x-2">
+            <Button onClick={onNewActivity} size="sm" data-testid="button-new-activity-grid">
+              <Plus className="w-4 h-4 mr-2" />
+              New Activity
+            </Button>
+          </div>
+        </div>
+        
+        {/* Enhanced Toolbar */}
+        <div className="flex items-center justify-between space-x-4 mt-4">
+          <div className="flex items-center space-x-2 flex-1">
+            {/* Search */}
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Search activities..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-64"
+                data-testid="input-search-activities"
+              />
+            </div>
+            
+            {/* Filters */}
             <Select value={filter} onValueChange={(value: any) => setFilter(value)}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40" data-testid="select-activity-filter">
                 <Filter className="w-4 h-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -190,8 +276,38 @@ export default function ScheduleGrid({
               </SelectContent>
             </Select>
             
+            {/* Activity Codes Filter */}
+            {availableActivityCodes.length > 0 && (
+              <Select value="" onValueChange={(code) => {
+                if (code && !selectedActivityCodes.includes(code)) {
+                  setSelectedActivityCodes([...selectedActivityCodes, code]);
+                }
+              }}>
+                <SelectTrigger className="w-40" data-testid="select-activity-codes">
+                  <Code2 className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Activity Codes" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableActivityCodes.map(code => (
+                    <SelectItem key={code} value={code}>{code}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            
+            {/* Selected Activity Codes */}
+            {selectedActivityCodes.map(code => (
+              <Badge key={code} variant="secondary" className="cursor-pointer"
+                onClick={() => setSelectedActivityCodes(selectedActivityCodes.filter(c => c !== code))}>
+                {code} ×
+              </Badge>
+            ))}
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {/* Sort */}
             <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-32" data-testid="select-sort">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -201,10 +317,10 @@ export default function ScheduleGrid({
                 <SelectItem value="totalFloat">Float</SelectItem>
               </SelectContent>
             </Select>
-
-            <Button onClick={onNewActivity} size="sm" data-testid="button-new-activity-grid">
-              <Circle className="w-4 h-4 mr-2" />
-              New Activity
+            
+            {/* Column Visibility */}
+            <Button variant="outline" size="sm" className="p-2">
+              <Eye className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -219,6 +335,15 @@ export default function ScheduleGrid({
                 )}
                 {showColumns.name && (
                   <TableHead className="min-w-48">Activity Name</TableHead>
+                )}
+                {showColumns.wbs && (
+                  <TableHead className="w-32">WBS</TableHead>
+                )}
+                {showColumns.activityCodes && (
+                  <TableHead className="w-40">Activity Codes</TableHead>
+                )}
+                {showColumns.customFields && (
+                  <TableHead className="w-40">Custom Fields</TableHead>
                 )}
                 {showColumns.type && (
                   <TableHead className="w-20">Type</TableHead>
@@ -270,12 +395,91 @@ export default function ScheduleGrid({
                   )}
                   {showColumns.name && (
                     <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{activity.name}</span>
-                        {activity.wbsId && wbsMap.has(activity.wbsId) && (
-                          <span className="text-xs text-gray-500">
-                            {wbsMap.get(activity.wbsId)?.code} - {wbsMap.get(activity.wbsId)?.name}
-                          </span>
+                      <div 
+                        className="flex items-center"
+                        style={{ paddingLeft: `${getActivityDisplayLevel(activity) * 16}px` }}
+                      >
+                        {/* WBS Expansion Toggle for WBS Summary activities */}
+                        {activity.type === 'WBSSummary' && activity.wbsId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-1 h-6 w-6 mr-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleWBSExpansion(activity.wbsId!);
+                            }}
+                          >
+                            {expandedWBS.has(activity.wbsId) ? 
+                              <ChevronDown className="w-3 h-3" /> : 
+                              <ChevronRight className="w-3 h-3" />
+                            }
+                          </Button>
+                        )}
+                        
+                        {/* Activity Type Icon */}
+                        <div className="mr-2">
+                          {activity.type === 'StartMilestone' || activity.type === 'FinishMilestone' ? (
+                            <Target className="w-4 h-4 text-blue-600" />
+                          ) : activity.type === 'WBSSummary' ? (
+                            <ChevronRight className="w-4 h-4 text-purple-600" />
+                          ) : activity.type === 'LOE' ? (
+                            <Calendar className="w-4 h-4 text-orange-600" />
+                          ) : activity.type === 'Hammock' ? (
+                            <Outdent className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Circle className="w-4 h-4 text-gray-400" />
+                          )}
+                        </div>
+                        
+                        <div className="flex flex-col">
+                          <span className="font-medium">{activity.name}</span>
+                          {activity.wbsId && wbsMap.has(activity.wbsId) && (
+                            <span className="text-xs text-gray-500">
+                              {wbsMap.get(activity.wbsId)?.code} - {wbsMap.get(activity.wbsId)?.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                  )}
+                  {showColumns.wbs && (
+                    <TableCell>
+                      <div className="text-xs">
+                        {activity.wbsId && wbsMap.has(activity.wbsId) ? (
+                          <Badge variant="outline" className="text-xs">
+                            {wbsMap.get(activity.wbsId)?.code}
+                          </Badge>
+                        ) : '-'}
+                      </div>
+                    </TableCell>
+                  )}
+                  {showColumns.activityCodes && (
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {activity.activityCodes && Object.keys(activity.activityCodes as any).length > 0 ? (
+                          Object.entries(activity.activityCodes as any).slice(0, 2).map(([key, value]) => (
+                            <Badge key={key} variant="secondary" className="text-xs">
+                              {key}: {String(value)}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
+                  {showColumns.customFields && (
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {activity.customFields && Object.keys(activity.customFields as any).length > 0 ? (
+                          Object.entries(activity.customFields as any).slice(0, 2).map(([key, value]) => (
+                            <Badge key={key} variant="outline" className="text-xs">
+                              {key}: {String(value)}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
                         )}
                       </div>
                     </TableCell>
