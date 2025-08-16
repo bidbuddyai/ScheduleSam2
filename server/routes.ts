@@ -548,37 +548,191 @@ Format as JSON with:
         distribution
       };
 
-      if (format === 'minutes') {
-        // Generate formatted meeting minutes
-        const minutes = {
-          header: {
-            company: "MeetBud",
-            title: `Weekly Progress Meeting #${meeting.seqNum}`,
-            project: project?.name,
-            date: meeting.date,
-            time: meeting.time,
-            location: meeting.location,
-            preparedBy: meeting.preparedBy
-          },
-          attendees: attendance.filter(a => a.presentBool).map(a => `${a.name} - ${a.company}`),
-          agenda: agenda.map(item => ({
-            topic: item.title,
-            discussion: item.discussion,
-            decision: item.decision
-          })),
-          actionItems: actions.map(item => ({
-            action: item.action,
-            owner: item.owner,
-            dueDate: item.dueDate,
-            status: item.status,
-            notes: item.notes
-          })),
-          nextMeeting: {
-            expectedDate: "TBD",
-            carryForwardItems: actions.filter(a => a.status !== "Closed").length
-          }
-        };
-        res.json(minutes);
+      if (format === 'pdf' || format === 'docx') {
+        // Generate HTML meeting minutes
+        const meetingDate = meeting.dateTime ? new Date(meeting.dateTime).toLocaleDateString('en-US', { 
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        }) : 'TBD';
+        
+        const openActions = actions.filter(a => a.status !== "Closed");
+        const closedActions = actions.filter(a => a.status === "Closed");
+        
+        const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Meeting Minutes - ${project?.name || 'Project'} - Meeting #${meeting.seqNum}</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1f2937; max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+    .logo { text-align: center; margin-bottom: 30px; }
+    .logo h1 { margin: 10px 0; font-size: 32px; }
+    .logo .meet { color: #f97316; }
+    .logo .bud { color: #3b82f6; }
+    .header-info { background: linear-gradient(135deg, #fef3c7 0%, #dbeafe 100%); padding: 20px; border-radius: 12px; margin-bottom: 30px; }
+    .header-info h2 { color: #1f2937; margin-top: 0; }
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .info-item { padding: 5px 0; }
+    h2 { color: #3b82f6; margin-top: 40px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
+    h3 { color: #6b7280; margin-top: 25px; }
+    .attendee-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 20px 0; }
+    .attendee { padding: 8px 12px; border-radius: 6px; background: #f9fafb; }
+    .present { background: #d1fae5; color: #065f46; }
+    .absent { background: #fee2e2; color: #991b1b; }
+    .agenda-item { background: #f9fafb; padding: 20px; margin: 20px 0; border-left: 4px solid #3b82f6; border-radius: 8px; }
+    .agenda-item h4 { color: #1f2937; margin-top: 0; }
+    .action-item { padding: 15px; margin: 12px 0; border-radius: 8px; border-left: 4px solid #f59e0b; }
+    .action-open { background: #fef3c7; }
+    .action-progress { background: #dbeafe; border-left-color: #3b82f6; }
+    .action-closed { background: #d1fae5; border-left-color: #10b981; }
+    .action-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+    .status-open { background: #fbbf24; color: #78350f; }
+    .status-progress { background: #60a5fa; color: #1e3a8a; }
+    .status-closed { background: #34d399; color: #064e3b; }
+    .action-details { font-size: 14px; color: #6b7280; line-height: 1.8; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th { background: #f3f4f6; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb; }
+    td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
+    tr:hover { background: #f9fafb; }
+    .footer { margin-top: 60px; padding-top: 30px; border-top: 2px solid #e5e7eb; text-align: center; color: #9ca3af; }
+    .footer-logo { font-size: 20px; margin-bottom: 10px; }
+    @media print { 
+      body { padding: 20px; }
+      .action-item, .agenda-item { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">
+    <h1><span class="meet">Meet</span><span class="bud">Bud</span></h1>
+    <p style="color: #6b7280; margin: 0;">Construction Meeting Management</p>
+  </div>
+  
+  <div class="header-info">
+    <h2 style="margin-bottom: 20px;">Meeting #${meeting.seqNum} - ${project?.name || 'Project'}</h2>
+    <div class="info-grid">
+      <div class="info-item"><strong>Date:</strong> ${meetingDate}</div>
+      <div class="info-item"><strong>Time:</strong> ${meeting.time || 'N/A'}</div>
+      <div class="info-item"><strong>Type:</strong> ${meeting.meetingType || 'Weekly Progress'}</div>
+      <div class="info-item"><strong>Location:</strong> ${meeting.location || 'Job Site'}</div>
+      <div class="info-item"><strong>Prepared By:</strong> ${meeting.preparedBy || 'Project Manager'}</div>
+      <div class="info-item"><strong>Weather:</strong> ${meeting.weather || 'Clear'}</div>
+    </div>
+  </div>
+  
+  <h2>Attendance</h2>
+  <div class="attendee-grid">
+    ${attendance.map(a => `
+    <div class="attendee ${a.presentBool ? 'present' : 'absent'}">
+      ${a.presentBool ? '✓' : '✗'} ${a.name} - ${a.company}
+    </div>`).join('')}
+  </div>
+  
+  <h2>Agenda & Discussion</h2>
+  ${agenda.sort((a, b) => a.topicOrder - b.topicOrder).map(item => `
+  <div class="agenda-item">
+    <h4>${item.topicOrder}. ${item.title}</h4>
+    ${item.discussion ? `<p><strong>Discussion:</strong><br>${item.discussion.replace(/\n/g, '<br>')}</p>` : ''}
+    ${item.decision ? `<p><strong>Decision/Action:</strong><br>${item.decision.replace(/\n/g, '<br>')}</p>` : ''}
+  </div>`).join('')}
+  
+  <h2>Action Items</h2>
+  
+  ${openActions.length > 0 ? `
+  <h3>Open & In Progress (${openActions.length})</h3>
+  ${openActions.map(action => `
+  <div class="action-item ${action.status === 'Open' ? 'action-open' : 'action-progress'}">
+    <div class="action-header">
+      <strong>${action.action}</strong>
+      <span class="status-badge ${action.status === 'Open' ? 'status-open' : 'status-progress'}">${action.status}</span>
+    </div>
+    <div class="action-details">
+      <strong>Owner:</strong> ${action.owner || 'Unassigned'} &nbsp;|&nbsp; 
+      <strong>Ball in Court:</strong> ${action.ballInCourt || 'TBD'}
+      ${action.dueDate ? ` &nbsp;|&nbsp; <strong>Due:</strong> ${new Date(action.dueDate).toLocaleDateString()}` : ''}
+      ${action.notes ? `<br><em>Notes: ${action.notes}</em>` : ''}
+    </div>
+  </div>`).join('')}
+  ` : '<p style="color: #6b7280;">No open action items.</p>'}
+  
+  ${closedActions.length > 0 ? `
+  <h3>Completed This Meeting (${closedActions.length})</h3>
+  ${closedActions.map(action => `
+  <div class="action-item action-closed">
+    <div class="action-header">
+      <strong>${action.action}</strong>
+      <span class="status-badge status-closed">Closed</span>
+    </div>
+    <div class="action-details">
+      <strong>Completed by:</strong> ${action.owner || 'N/A'}
+      ${action.notes ? `<br><em>${action.notes}</em>` : ''}
+    </div>
+  </div>`).join('')}
+  ` : ''}
+  
+  ${rfis.length > 0 ? `
+  <h2>RFIs</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>RFI #</th>
+        <th>Subject</th>
+        <th>Status</th>
+        <th>Response Due</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rfis.map(rfi => `
+      <tr>
+        <td>${rfi.rfiNumber}</td>
+        <td>${rfi.subject}</td>
+        <td>${rfi.status}</td>
+        <td>${rfi.responseDue ? new Date(rfi.responseDue).toLocaleDateString() : 'N/A'}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  ` : ''}
+  
+  ${submittals.length > 0 ? `
+  <h2>Submittals</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Submittal #</th>
+        <th>Description</th>
+        <th>Status</th>
+        <th>Date Submitted</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${submittals.map(sub => `
+      <tr>
+        <td>${sub.submittalNumber}</td>
+        <td>${sub.description}</td>
+        <td>${sub.status}</td>
+        <td>${sub.dateSubmitted ? new Date(sub.dateSubmitted).toLocaleDateString() : 'N/A'}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  ` : ''}
+  
+  <h2>Next Meeting</h2>
+  <p>The next meeting is to be scheduled. <strong>${openActions.length}</strong> action item${openActions.length !== 1 ? 's' : ''} will carry forward to the next meeting.</p>
+  
+  <div class="footer">
+    <div class="footer-logo">
+      <span class="meet">Meet</span><span class="bud">Bud</span>
+    </div>
+    <p>Generated on ${new Date().toLocaleString()}</p>
+    <p style="font-size: 12px;">© 2024 MeetBud - Construction Meeting Management</p>
+  </div>
+</body>
+</html>`;
+        
+        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Content-Disposition', `attachment; filename="Meeting_${meeting.seqNum}_Minutes.html"`);
+        res.send(html);
       } else if (format === 'json') {
         res.json(exportData);
       } else {

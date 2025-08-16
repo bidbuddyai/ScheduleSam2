@@ -10,8 +10,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertActionItemSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
-import type { ActionItem } from "@shared/schema";
+import { useState, useMemo } from "react";
+import type { ActionItem, Attendance } from "@shared/schema";
 import type { z } from "zod";
 
 type InsertActionItemForm = z.infer<typeof insertActionItemSchema>;
@@ -24,10 +24,38 @@ interface ActionItemsSectionProps {
 export default function ActionItemsSection({ meetingId, isEmbedded = false }: ActionItemsSectionProps) {
   const { toast } = useToast();
   const [showNewAction, setShowNewAction] = useState(false);
+  const [editingAction, setEditingAction] = useState<ActionItem | null>(null);
 
   const { data: actionItems = [], isLoading } = useQuery<ActionItem[]>({
     queryKey: ["/api/meetings", meetingId, "actions"],
   });
+
+  const { data: attendance = [] } = useQuery<Attendance[]>({
+    queryKey: ["/api/meetings", meetingId, "attendance"],
+  });
+
+  // Get list of unique people from attendance and existing action items
+  const peopleList = useMemo(() => {
+    const peopleSet = new Set<string>();
+    
+    // Add from attendance
+    attendance.forEach(a => {
+      if (a.name) peopleSet.add(a.name);
+    });
+    
+    // Add from existing action items
+    actionItems.forEach(action => {
+      if (action.owner) peopleSet.add(action.owner);
+      if (action.ballInCourt) peopleSet.add(action.ballInCourt);
+    });
+    
+    // Add some common roles
+    ['Project Manager', 'Site Supervisor', 'Contractor', 'Architect', 'Engineer', 'Inspector'].forEach(role => {
+      peopleSet.add(role);
+    });
+    
+    return Array.from(peopleSet).sort();
+  }, [attendance, actionItems]);
 
   const form = useForm<InsertActionItemForm>({
     resolver: zodResolver(insertActionItemSchema.omit({ meetingId: true })),
@@ -165,8 +193,8 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
                   </div>
                   <p className="text-gray-900 font-medium mb-2">{action.action}</p>
                   <div className="flex items-center space-x-4 text-sm text-gray-600">
-                    <span><strong>Owner:</strong> {action.owner}</span>
-                    <span><strong>Ball in Court:</strong> {action.ballInCourt}</span>
+                    <span><strong>Owner:</strong> {action.owner || 'Unassigned'}</span>
+                    <span><strong>Ball in Court:</strong> {action.ballInCourt || 'TBD'}</span>
                   </div>
                   {action.notes && (
                     <p className="text-sm text-gray-600 mt-2">{action.notes}</p>
@@ -175,16 +203,24 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
                 <div className="flex items-center space-x-2">
                   <button 
                     className="text-brand-secondary hover:text-brand-primary"
+                    onClick={() => setEditingAction(action)}
                     data-testid={`button-edit-action-${action.id}`}
                   >
                     <i className="fas fa-edit"></i>
                   </button>
-                  <button 
-                    className="text-red-600 hover:text-red-900"
-                    data-testid={`button-delete-action-${action.id}`}
+                  <Select
+                    value={action.status}
+                    onValueChange={(value) => updateActionMutation.mutate({ id: action.id, updates: { status: value as "Open" | "In Progress" | "Closed" } })}
                   >
-                    <i className="fas fa-trash"></i>
-                  </button>
+                    <SelectTrigger className="w-32" data-testid={`select-status-${action.id}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Open">Open</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -228,9 +264,21 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Owner</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-action-owner" />
-                          </FormControl>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-action-owner">
+                                <SelectValue placeholder="Select owner" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="">Unassigned</SelectItem>
+                              {peopleList.map((person) => (
+                                <SelectItem key={person} value={person}>
+                                  {person}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -241,9 +289,21 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Ball in Court</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-action-ball-in-court" />
-                          </FormControl>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-action-ball-in-court">
+                                <SelectValue placeholder="Select responsible party" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="">TBD</SelectItem>
+                              {peopleList.map((person) => (
+                                <SelectItem key={person} value={person}>
+                                  {person}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -257,7 +317,7 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
                         <FormItem>
                           <FormLabel>Due Date</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} data-testid="input-action-due-date" />
+                            <Input type="date" {...field} value={field.value || ""} data-testid="input-action-due-date" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -293,7 +353,7 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
                       <FormItem>
                         <FormLabel>Notes</FormLabel>
                         <FormControl>
-                          <Textarea {...field} rows={2} data-testid="textarea-action-notes" />
+                          <Textarea {...field} value={field.value || ""} rows={2} data-testid="textarea-action-notes" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

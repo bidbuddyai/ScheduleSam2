@@ -97,8 +97,8 @@ export default function AgendaSection({ meetingId }: AgendaSectionProps) {
                     rows={4} 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-accent focus:border-brand-accent"
                     placeholder="Enter discussion points..."
-                    value={item.discussion || ""}
-                    onChange={(e) => handleUpdate(item.id, 'discussion', e.target.value)}
+                    defaultValue={item.discussion || ""}
+                    onBlur={(e) => handleUpdate(item.id, 'discussion', e.target.value)}
                     data-testid={`textarea-discussion-${item.id}`}
                   />
                 </div>
@@ -108,8 +108,8 @@ export default function AgendaSection({ meetingId }: AgendaSectionProps) {
                     rows={4} 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-accent focus:border-brand-accent"
                     placeholder="Enter decisions and actions..."
-                    value={item.decision || ""}
-                    onChange={(e) => handleUpdate(item.id, 'decision', e.target.value)}
+                    defaultValue={item.decision || ""}
+                    onBlur={(e) => handleUpdate(item.id, 'decision', e.target.value)}
                     data-testid={`textarea-decision-${item.id}`}
                   />
                 </div>
