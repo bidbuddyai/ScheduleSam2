@@ -13,6 +13,8 @@ import ScheduleUpdateSection from "@/components/ScheduleUpdateSection";
 import MeetingFileUpload from "@/components/MeetingFileUpload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
 import type { Project, Meeting as MeetingType } from "@shared/schema";
 
 export default function Meeting() {
@@ -30,11 +32,24 @@ export default function Meeting() {
   if (projectLoading || meetingLoading) {
     return (
       <Layout>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="animate-pulse space-y-6">
-            <div className="h-32 bg-gray-200 rounded-lg"></div>
-            <div className="h-64 bg-gray-200 rounded-lg"></div>
-            <div className="h-96 bg-gray-200 rounded-lg"></div>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="space-y-6">
+            <div className="flex items-center space-x-2">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-4 w-4" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-4" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <Skeleton className="h-48 w-full rounded-lg" />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <Skeleton className="h-96 w-full rounded-lg" />
+              </div>
+              <div>
+                <Skeleton className="h-64 w-full rounded-lg" />
+              </div>
+            </div>
           </div>
         </main>
       </Layout>
@@ -66,38 +81,63 @@ export default function Meeting() {
   return (
     <Layout>
       {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-200">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <nav className="flex items-center space-x-2 text-sm">
-            <Link href="/projects" className="text-gray-500 hover:text-gray-700">
+          <nav className="flex items-center space-x-2 text-sm flex-wrap">
+            <Link href="/projects" className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
               Projects
             </Link>
-            <i className="fas fa-chevron-right text-gray-400 text-xs"></i>
-            <Link href={`/project/${project.id}`} className="text-gray-500 hover:text-gray-700">
+            <i className="fas fa-chevron-right text-gray-400 dark:text-gray-500 text-xs"></i>
+            <Link href={`/project/${project.id}`} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
               {project.name}
             </Link>
-            <i className="fas fa-chevron-right text-gray-400 text-xs"></i>
-            <span className="text-gray-900 font-medium">
+            <i className="fas fa-chevron-right text-gray-400 dark:text-gray-500 text-xs"></i>
+            <span className="text-gray-900 dark:text-gray-100 font-medium">
               Meeting #{meeting.seqNum} - {new Date(meeting.date).toLocaleDateString()}
             </span>
           </nav>
         </div>
-      </div>
+      </motion.div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Meeting Document Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="px-8 py-6">
-            <div className="text-center border-b border-gray-200 pb-6 mb-6">
-              <h1 className="text-2xl font-bold text-brand-secondary mb-2">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6 transition-colors"
+        >
+          <div className="px-4 sm:px-8 py-4 sm:py-6">
+            <div className="text-center border-b border-gray-200 dark:border-gray-700 pb-4 sm:pb-6 mb-4 sm:mb-6">
+              <motion.h1 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-xl sm:text-2xl font-bold text-brand-secondary mb-2"
+              >
                 Adams & Grand Demolition
-              </h1>
-              <h2 className="text-xl font-semibold text-gray-800 mb-1">
+              </motion.h1>
+              <motion.h2 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200 mb-1"
+              >
                 Weekly Progress Meeting #{meeting.seqNum}
-              </h2>
-              <h3 className="text-lg text-gray-600">
+              </motion.h2>
+              <motion.h3 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="text-base sm:text-lg text-gray-600 dark:text-gray-400"
+              >
                 {project.name}
-              </h3>
+              </motion.h3>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -117,7 +157,7 @@ export default function Meeting() {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Main Agenda & Discussion */}
         <AgendaSection meetingId={meeting.id} />

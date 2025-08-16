@@ -16,6 +16,8 @@ import { useState } from "react";
 import type { Project, Meeting } from "@shared/schema";
 import type { z } from "zod";
 import ScheduleManager from "@/components/ScheduleManager";
+import { Skeleton } from "@/components/ui/skeleton";
+import { motion, AnimatePresence } from "framer-motion";
 
 type InsertMeetingForm = z.infer<typeof insertMeetingSchema>;
 
@@ -76,10 +78,23 @@ export default function ProjectDetail() {
   if (projectLoading || meetingsLoading) {
     return (
       <Layout>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded mb-6"></div>
-            <div className="h-64 bg-gray-200 rounded-lg"></div>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="space-y-6">
+            <div className="flex items-center space-x-2">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-4 w-4" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-4">
+                <Skeleton className="h-48 w-full rounded-lg" />
+                <Skeleton className="h-32 w-full rounded-lg" />
+              </div>
+              <div className="space-y-4">
+                <Skeleton className="h-32 w-full rounded-lg" />
+                <Skeleton className="h-24 w-full rounded-lg" />
+              </div>
+            </div>
           </div>
         </main>
       </Layout>
@@ -111,33 +126,45 @@ export default function ProjectDetail() {
   return (
     <Layout>
       {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-200">
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <nav className="flex items-center space-x-2 text-sm">
-            <Link href="/projects" className="text-gray-500 hover:text-gray-700">
+            <Link href="/projects" className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
               Projects
             </Link>
-            <i className="fas fa-chevron-right text-gray-400 text-xs"></i>
-            <span className="text-gray-900 font-medium">{project.name}</span>
+            <i className="fas fa-chevron-right text-gray-400 dark:text-gray-500 text-xs"></i>
+            <span className="text-gray-900 dark:text-gray-100 font-medium">{project.name}</span>
           </nav>
         </div>
-      </div>
+      </motion.div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Project Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="px-6 py-4 border-b border-gray-200">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6 transition-colors"
+        >
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex justify-between items-start">
               <div className="flex items-center space-x-4">
-                <div
+                <motion.div
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 300 }}
                   className="w-16 h-16 rounded-lg flex items-center justify-center"
                   style={{ backgroundColor: project.colorPrimary }}
                 >
                   <i className="fas fa-building text-white text-2xl"></i>
-                </div>
+                </motion.div>
                 <div>
                   <h2 className="text-2xl font-bold text-brand-primary">{project.name}</h2>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     Created {new Date(project.createdAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -234,7 +261,7 @@ export default function ProjectDetail() {
               </Dialog>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Meetings List */}
         <Card>

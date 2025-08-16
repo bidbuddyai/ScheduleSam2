@@ -14,6 +14,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Project, InsertProject } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
+import { Skeleton } from "@/components/ui/skeleton";
+import { motion, AnimatePresence } from "framer-motion";
 
 const createProjectSchema = insertProjectSchema.extend({
   name: z.string().min(1, "Project name is required"),
@@ -68,12 +70,24 @@ export default function Projects() {
   if (isLoading) {
     return (
       <Layout>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded mb-6"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-10 w-32" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
+                <Card key={i} className="overflow-hidden">
+                  <CardContent className="p-4 sm:pt-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <Skeleton className="w-12 h-12 rounded-lg" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                    <Skeleton className="h-6 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
@@ -162,55 +176,90 @@ export default function Projects() {
         </div>
 
         {projects.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center py-12">
-                <i className="fas fa-building text-4xl text-gray-400 mb-4"></i>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
-                <p className="text-gray-500 mb-4">Get started by creating your first project.</p>
-                <Button 
-                  className="bg-brand-secondary text-white hover:bg-brand-primary"
-                  data-testid="button-create-first-project"
-                  onClick={() => setIsCreateDialogOpen(true)}
-                >
-                  Create Project
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+          >
+            <Card className="border-dashed border-2 border-gray-300 hover:border-orange-300 transition-colors">
+              <CardContent className="pt-6">
+                <div className="text-center py-12">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+                  >
+                    <i className="fas fa-building text-4xl text-gray-400 mb-4"></i>
+                  </motion.div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
+                  <p className="text-gray-500 mb-4">Get started by creating your first project.</p>
+                  <Button 
+                    className="bg-brand-secondary text-white hover:bg-brand-primary transition-all hover:scale-105"
+                    data-testid="button-create-first-project"
+                    onClick={() => setIsCreateDialogOpen(true)}
+                  >
+                    Create Project
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {projects.map((project) => (
-              <Card key={project.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4 sm:pt-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div
-                      className="w-12 h-12 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: project.colorPrimary }}
-                    >
-                      <i className="fas fa-building text-white"></i>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-500">
-                        Created {new Date(project.createdAt).toLocaleDateString()}
+            <AnimatePresence mode="popLayout">
+              {projects.map((project, index) => (
+                <motion.div
+                  key={project.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  whileHover={{ y: -4 }}
+                  className="group"
+                >
+                  <Card className="hover:shadow-lg transition-all duration-300 border-gray-200 hover:border-orange-200 h-full">
+                    <CardContent className="p-4 sm:pt-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <motion.div
+                          className="w-12 h-12 rounded-lg flex items-center justify-center"
+                          style={{ backgroundColor: project.colorPrimary }}
+                          whileHover={{ scale: 1.1, rotate: 5 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <i className="fas fa-building text-white"></i>
+                        </motion.div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">
+                            Created {new Date(project.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
                   
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{project.name}</h3>
-                  
-                  <div className="flex items-center justify-between">
-                    <Link 
-                      href={`/project/${project.id}`}
-                      className="text-sm sm:text-base text-brand-secondary hover:text-brand-primary font-medium"
-                      data-testid={`link-project-${project.id}`}
-                    >
-                      View Project →
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
+                        {project.name}
+                      </h3>
+                      
+                      <div className="flex items-center justify-between">
+                        <Link 
+                          href={`/project/${project.id}`}
+                          className="text-sm sm:text-base text-brand-secondary hover:text-brand-primary font-medium inline-flex items-center gap-1 transition-all group-hover:gap-2"
+                          data-testid={`link-project-${project.id}`}
+                        >
+                          View Project
+                          <motion.span
+                            className="inline-block"
+                            initial={{ x: 0 }}
+                            whileHover={{ x: 3 }}
+                          >
+                            →
+                          </motion.span>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </main>
