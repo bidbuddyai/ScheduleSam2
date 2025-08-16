@@ -375,7 +375,7 @@ Format as JSON with:
   // AI-powered schedule generation
   app.post("/api/projects/:projectId/schedules/generate-ai", async (req, res) => {
     try {
-      const { type, projectDescription, currentActivities, userRequest, startDate, constraints, uploadedFiles } = req.body;
+      const { type, projectDescription, currentActivities, userRequest, startDate, constraints, uploadedFiles, model } = req.body;
       
       console.log('Generating schedule with AI:', { type, projectDescription, uploadedFiles });
       
@@ -386,7 +386,8 @@ Format as JSON with:
         userRequest: userRequest || '',
         startDate,
         constraints,
-        uploadedFiles
+        uploadedFiles,
+        model: model || 'Claude-3-Haiku'
       });
       
       console.log('AI generation result:', { activitiesCount: result.activities.length });
@@ -550,12 +551,12 @@ Format as JSON with:
         .orderBy(scheduleActivities.startDate);
       
       // Get project name
-      const projects = await dbStorage!.db
+      const projects = dbStorage ? await dbStorage.db
         .select()
         .from(dbStorage.schema.projects)
-        .where(eq(dbStorage.schema.projects.id, schedule.projectId));
+        .where(eq(dbStorage.schema.projects.id, schedule.projectId)) : [];
       
-      const projectName = projects[0]?.name || 'Project';
+      const projectName = projects && projects[0]?.name || 'Project';
       
       // Export schedule
       const exportResult = await exportSchedule(

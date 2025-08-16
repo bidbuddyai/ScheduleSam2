@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Sparkles, Calendar, GitBranch, Upload, FileText } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +30,7 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
   );
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [uploadedFileNames, setUploadedFileNames] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState("Claude-3-Haiku");
   
   // Generate schedule with AI
   const generateScheduleMutation = useMutation({
@@ -39,7 +41,8 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
         currentActivities: activities,
         userRequest,
         startDate: projectStartDate,
-        uploadedFiles
+        uploadedFiles,
+        model: selectedModel
       });
       return response.json();
     },
@@ -219,15 +222,34 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
                 />
               </div>
               
-              <div>
-                <Label htmlFor="start-date">Project Start Date</Label>
-                <input
-                  id="start-date"
-                  type="date"
-                  value={projectStartDate}
-                  onChange={(e) => setProjectStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="start-date">Project Start Date</Label>
+                  <input
+                    id="start-date"
+                    type="date"
+                    value={projectStartDate}
+                    onChange={(e) => setProjectStartDate(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="ai-model">AI Model</Label>
+                  <Select value={selectedModel} onValueChange={setSelectedModel}>
+                    <SelectTrigger id="ai-model">
+                      <SelectValue placeholder="Select AI model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Claude-3-Haiku">Claude-3-Haiku (Fast & Cheap)</SelectItem>
+                      <SelectItem value="GPT-3.5-Turbo">GPT-3.5-Turbo (Cheap)</SelectItem>
+                      <SelectItem value="Claude-Sonnet-4">Claude-Sonnet-4 (Best Quality)</SelectItem>
+                      <SelectItem value="GPT-4o">GPT-4o (High Quality)</SelectItem>
+                      <SelectItem value="Llama-3.1-405B">Llama-3.1-405B (Good & Free)</SelectItem>
+                      <SelectItem value="gemini-2.5-pro">Gemini-2.5-Pro (Fast)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <div className="space-y-2">
@@ -313,7 +335,7 @@ export default function InteractiveScheduleCreator({ projectId, onScheduleCreate
               {uploadedFileNames.length > 0 && (
                 <Alert className="bg-blue-50 border-blue-200">
                   <AlertDescription className="text-sm">
-                    <strong>Note:</strong> AI analysis of {uploadedFileNames.length} document(s) may take 30-60 seconds using Claude-Sonnet-4 for accurate results.
+                    <strong>Note:</strong> AI analysis of {uploadedFileNames.length} document(s) may take 30-60 seconds using {selectedModel} for accurate results.
                   </AlertDescription>
                 </Alert>
               )}
