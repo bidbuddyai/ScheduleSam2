@@ -64,17 +64,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const meeting = await storage.createMeeting(data);
 
-      // Create 9 standard agenda topics
+      // Create 6 standard demolition meeting agenda topics
       const agendaTopics = [
-        "Safety Review & Incidents",
-        "Schedule Review", 
-        "Quality Control",
-        "Subcontractor Coordination",
-        "Material & Equipment Status",
-        "Change Orders & Variations",
-        "Environmental & Compliance",
-        "Budget & Cost Review",
-        "Next Week Planning"
+        "Welcome & Introductions",
+        "Site Safety",
+        "Project Schedule",
+        "Ongoing Project Details",
+        "Open Discussion",
+        "Action Items & Next Steps"
+      ];
+
+      // Default discussion templates for each agenda topic
+      const agendaDescriptions = [
+        "Brief roundtable introductions (if applicable), Review of meeting objectives",
+        "Discussion of any recent incidents or near-misses, Safety protocol updates and reminders, Environmental hazard precautions",
+        "Review of overall project timeline, Milestone status updates, Coordination of upcoming work phases",
+        "Progress on abatement and demolition activities, Permitting and regulatory updates, Subcontractor coordination, Material removal and disposal tracking",
+        "Stakeholder concerns or input, Unresolved issues or obstacles, Recommendations and feedback",
+        "Recap of assigned responsibilities, Follow-up items and due dates, Scheduling of next meeting"
       ];
 
       for (let i = 0; i < agendaTopics.length; i++) {
@@ -82,7 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           meetingId: meeting.id,
           topicOrder: i + 1,
           title: agendaTopics[i],
-          discussion: "",
+          discussion: agendaDescriptions[i],
           decision: ""
         });
       }

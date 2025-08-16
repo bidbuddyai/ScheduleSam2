@@ -1,6 +1,6 @@
 # Overview
 
-Adams & Grand Demolition Weekly Progress Meetings is a production-ready web application designed for managing construction progress meetings. The system provides structured meeting workflows with a standardized 9-topic agenda, comprehensive tracking of action items, RFIs, submittals, and fabrication components. The application integrates AI assistance through Poe's OpenAI-compatible API to help automate meeting tasks, generate summaries, and assist with project management workflows.
+Adams & Grand Demolition Weekly Progress Meetings is a production-ready web application designed for managing demolition project meetings. The system provides structured meeting workflows with a standardized 6-topic agenda format, comprehensive tracking of action items, site safety, and project progress. The application integrates AI assistance through Poe's OpenAI-compatible API to help automate meeting tasks, generate summaries, and assist with project management workflows.
 
 # User Preferences
 
@@ -35,8 +35,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Meeting Workflow Architecture
 - **Sequential Meetings**: Automatic meeting numbering and carry-forward logic for action items
-- **9-Topic Agenda**: Standardized agenda structure with discussion and decision tracking
-- **Status Tracking**: Comprehensive status management for action items, RFIs, and open items
+- **6-Topic Demolition Agenda**: Standardized agenda structure tailored for demolition projects:
+  1. Welcome & Introductions
+  2. Site Safety
+  3. Project Schedule
+  4. Ongoing Project Details
+  5. Open Discussion
+  6. Action Items & Next Steps
+- **Status Tracking**: Comprehensive status management for action items, safety incidents, and project milestones
 - **Export System**: JSON export capability with planned DOCX/PDF support
 
 ## Data Flow Patterns
