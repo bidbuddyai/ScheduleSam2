@@ -7,7 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, GitBranch, Calendar, Clock, AlertTriangle, Save, Grid3x3, TableIcon } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Plus, Edit2, Trash2, GitBranch, Calendar, Clock, AlertTriangle, Save, Grid3x3, TableIcon, Info, Users, FileText, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import MSProjectGanttChart from "./GanttChart";
 
@@ -31,6 +35,22 @@ export interface Activity {
   finishDate?: string;
   resources?: string[];
   wbs?: string;
+  // MS Project-style additional fields
+  constraintType?: 'ASAP' | 'ALAP' | 'SNET' | 'SNLT' | 'FNET' | 'FNLT' | 'MSO' | 'MFO';
+  constraintDate?: string;
+  actualStart?: string;
+  actualFinish?: string;
+  actualDuration?: number;
+  remainingDuration?: number;
+  cost?: number;
+  baselineDuration?: number;
+  baselineStart?: string;
+  baselineFinish?: string;
+  notes?: string;
+  priority?: number;
+  resourceCost?: number;
+  work?: number;
+  physicalPercentComplete?: number;
 }
 
 interface ScheduleEditorProps {
@@ -155,7 +175,23 @@ export default function ScheduleEditor({
     status: 'Not Started' as Activity['status'],
     percentComplete: 0,
     wbs: '',
-    resources: ''
+    resources: '',
+    // MS Project-style fields
+    constraintType: 'ASAP' as Activity['constraintType'],
+    constraintDate: '',
+    actualStart: '',
+    actualFinish: '',
+    actualDuration: 0,
+    remainingDuration: 1,
+    cost: 0,
+    baselineDuration: 0,
+    baselineStart: '',
+    baselineFinish: '',
+    notes: '',
+    priority: 500,
+    resourceCost: 0,
+    work: 0,
+    physicalPercentComplete: 0
   });
 
   // Manually trigger update to parent
@@ -175,7 +211,22 @@ export default function ScheduleEditor({
       status: 'Not Started',
       percentComplete: 0,
       wbs: '',
-      resources: ''
+      resources: '',
+      constraintType: 'ASAP',
+      constraintDate: '',
+      actualStart: '',
+      actualFinish: '',
+      actualDuration: 0,
+      remainingDuration: 1,
+      cost: 0,
+      baselineDuration: 0,
+      baselineStart: '',
+      baselineFinish: '',
+      notes: '',
+      priority: 500,
+      resourceCost: 0,
+      work: 0,
+      physicalPercentComplete: 0
     });
     setShowActivityDialog(true);
   };
@@ -190,7 +241,22 @@ export default function ScheduleEditor({
       status: activity.status,
       percentComplete: activity.percentComplete,
       wbs: activity.wbs || '',
-      resources: activity.resources?.join(', ') || ''
+      resources: activity.resources?.join(', ') || '',
+      constraintType: activity.constraintType || 'ASAP',
+      constraintDate: activity.constraintDate || '',
+      actualStart: activity.actualStart || '',
+      actualFinish: activity.actualFinish || '',
+      actualDuration: activity.actualDuration || 0,
+      remainingDuration: activity.remainingDuration || activity.duration,
+      cost: activity.cost || 0,
+      baselineDuration: activity.baselineDuration || activity.duration,
+      baselineStart: activity.baselineStart || activity.startDate || '',
+      baselineFinish: activity.baselineFinish || activity.finishDate || '',
+      notes: activity.notes || '',
+      priority: activity.priority || 500,
+      resourceCost: activity.resourceCost || 0,
+      work: activity.work || 0,
+      physicalPercentComplete: activity.physicalPercentComplete || 0
     });
     setShowActivityDialog(true);
   };
@@ -216,7 +282,22 @@ export default function ScheduleEditor({
       status: formData.status,
       percentComplete: formData.percentComplete,
       wbs: formData.wbs,
-      resources: resourceList
+      resources: resourceList,
+      constraintType: formData.constraintType,
+      constraintDate: formData.constraintDate || undefined,
+      actualStart: formData.actualStart || undefined,
+      actualFinish: formData.actualFinish || undefined,
+      actualDuration: formData.actualDuration || undefined,
+      remainingDuration: formData.remainingDuration || undefined,
+      cost: formData.cost || undefined,
+      baselineDuration: formData.baselineDuration || undefined,
+      baselineStart: formData.baselineStart || undefined,
+      baselineFinish: formData.baselineFinish || undefined,
+      notes: formData.notes || undefined,
+      priority: formData.priority || 500,
+      resourceCost: formData.resourceCost || undefined,
+      work: formData.work || undefined,
+      physicalPercentComplete: formData.physicalPercentComplete || undefined
     };
     
     let updatedActivities: Activity[];
@@ -393,112 +474,455 @@ export default function ScheduleEditor({
         </CardContent>
       </Card>
 
-      {/* Activity Dialog */}
+      {/* MS Project-style Activity Dialog */}
       <Dialog open={showActivityDialog} onOpenChange={setShowActivityDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle>
-              {editingActivity ? 'Edit Activity' : 'Add New Activity'}
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5 text-blue-600" />
+              Task Information - {formData.activityName || 'New Task'}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="activityId">Activity ID</Label>
-                <Input
-                  id="activityId"
-                  value={formData.activityId}
-                  onChange={(e) => setFormData({ ...formData, activityId: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="wbs">WBS Code</Label>
-                <Input
-                  id="wbs"
-                  value={formData.wbs}
-                  onChange={(e) => setFormData({ ...formData, wbs: e.target.value })}
-                  placeholder="1.2.3"
-                />
-              </div>
-            </div>
+          
+          <Tabs defaultValue="general" className="w-full">
+            <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="general">General</TabsTrigger>
+              <TabsTrigger value="predecessors">Predecessors</TabsTrigger>
+              <TabsTrigger value="resources">Resources</TabsTrigger>
+              <TabsTrigger value="advanced">Advanced</TabsTrigger>
+              <TabsTrigger value="tracking">Tracking</TabsTrigger>
+              <TabsTrigger value="notes">Notes</TabsTrigger>
+            </TabsList>
             
-            <div>
-              <Label htmlFor="activityName">Activity Name</Label>
-              <Input
-                id="activityName"
-                value={formData.activityName}
-                onChange={(e) => setFormData({ ...formData, activityName: e.target.value })}
-              />
-            </div>
+            <ScrollArea className="h-[500px] mt-4">
+              {/* General Tab */}
+              <TabsContent value="general" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="activityName">Name</Label>
+                    <Input
+                      id="activityName"
+                      value={formData.activityName}
+                      onChange={(e) => setFormData({ ...formData, activityName: e.target.value })}
+                      className="font-medium"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="activityId">ID</Label>
+                    <Input
+                      id="activityId"
+                      value={formData.activityId}
+                      onChange={(e) => setFormData({ ...formData, activityId: e.target.value })}
+                    />
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="duration">Duration (days)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="1"
-                  value={formData.duration}
-                  onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 1 })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="predecessors">Predecessors</Label>
-                <Input
-                  id="predecessors"
-                  value={formData.predecessors}
-                  onChange={(e) => setFormData({ ...formData, predecessors: e.target.value })}
-                  placeholder="A001, A002"
-                />
-              </div>
-            </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="duration">Duration</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="duration"
+                        type="number"
+                        min="0"
+                        value={formData.duration}
+                        onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })}
+                        className="flex-1"
+                      />
+                      <span className="flex items-center px-2 text-sm text-gray-600">days</span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="wbs">WBS</Label>
+                    <Input
+                      id="wbs"
+                      value={formData.wbs}
+                      onChange={(e) => setFormData({ ...formData, wbs: e.target.value })}
+                      placeholder="1.2.3"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select 
+                      value={formData.priority.toString()} 
+                      onValueChange={(v) => setFormData({ ...formData, priority: parseInt(v) })}
+                    >
+                      <SelectTrigger id="priority">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1000">Highest (1000)</SelectItem>
+                        <SelectItem value="750">High (750)</SelectItem>
+                        <SelectItem value="500">Medium (500)</SelectItem>
+                        <SelectItem value="250">Low (250)</SelectItem>
+                        <SelectItem value="0">Lowest (0)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select 
-                  value={formData.status} 
-                  onValueChange={(v) => setFormData({ ...formData, status: v as Activity['status'] })}
-                >
-                  <SelectTrigger id="status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Not Started">Not Started</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="percentComplete">% Complete</Label>
-                <Input
-                  id="percentComplete"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.percentComplete}
-                  onChange={(e) => setFormData({ ...formData, percentComplete: parseInt(e.target.value) || 0 })}
-                />
-              </div>
-            </div>
+                <Separator />
 
-            <div>
-              <Label htmlFor="resources">Resources</Label>
-              <Input
-                id="resources"
-                value={formData.resources}
-                onChange={(e) => setFormData({ ...formData, resources: e.target.value })}
-                placeholder="John Doe, Excavator, Crane"
-              />
-            </div>
+                <div className="space-y-4">
+                  <Label>Percent Complete</Label>
+                  <div className="flex items-center gap-4">
+                    <Slider
+                      value={[formData.percentComplete]}
+                      onValueChange={(value) => setFormData({ ...formData, percentComplete: value[0] })}
+                      max={100}
+                      step={5}
+                      className="flex-1"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formData.percentComplete}
+                        onChange={(e) => setFormData({ ...formData, percentComplete: parseInt(e.target.value) || 0 })}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-gray-600">%</span>
+                    </div>
+                  </div>
+                </div>
 
-            <div className="flex justify-end gap-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="status">Status</Label>
+                    <Select 
+                      value={formData.status} 
+                      onValueChange={(v) => setFormData({ ...formData, status: v as Activity['status'] })}
+                    >
+                      <SelectTrigger id="status">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Not Started">Not Started</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="constraintType">Constraint Type</Label>
+                    <Select 
+                      value={formData.constraintType} 
+                      onValueChange={(v) => setFormData({ ...formData, constraintType: v as Activity['constraintType'] })}
+                    >
+                      <SelectTrigger id="constraintType">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ASAP">As Soon As Possible</SelectItem>
+                        <SelectItem value="ALAP">As Late As Possible</SelectItem>
+                        <SelectItem value="SNET">Start No Earlier Than</SelectItem>
+                        <SelectItem value="SNLT">Start No Later Than</SelectItem>
+                        <SelectItem value="FNET">Finish No Earlier Than</SelectItem>
+                        <SelectItem value="FNLT">Finish No Later Than</SelectItem>
+                        <SelectItem value="MSO">Must Start On</SelectItem>
+                        <SelectItem value="MFO">Must Finish On</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {(formData.constraintType !== 'ASAP' && formData.constraintType !== 'ALAP') && (
+                  <div>
+                    <Label htmlFor="constraintDate">Constraint Date</Label>
+                    <Input
+                      id="constraintDate"
+                      type="date"
+                      value={formData.constraintDate}
+                      onChange={(e) => setFormData({ ...formData, constraintDate: e.target.value })}
+                    />
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Predecessors Tab */}
+              <TabsContent value="predecessors" className="space-y-4">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="predecessors">Predecessors</Label>
+                    <Textarea
+                      id="predecessors"
+                      value={formData.predecessors}
+                      onChange={(e) => setFormData({ ...formData, predecessors: e.target.value })}
+                      placeholder="Enter task IDs separated by commas (e.g., A001, A002)\nOr use relationships like: A001FS+2, A002SS"
+                      rows={5}
+                      className="font-mono"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">
+                      Relationship types: FS (Finish-to-Start), SS (Start-to-Start), SF (Start-to-Finish), FF (Finish-to-Finish)
+                    </p>
+                  </div>
+
+                  {editingActivity && (
+                    <div>
+                      <Label>Current Dependencies</Label>
+                      <div className="border rounded-lg p-3 bg-gray-50">
+                        <div className="space-y-2">
+                          <div>
+                            <span className="font-medium text-sm">Predecessors:</span>
+                            <span className="text-sm ml-2">
+                              {editingActivity.predecessors.length > 0 ? editingActivity.predecessors.join(', ') : 'None'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-sm">Successors:</span>
+                            <span className="text-sm ml-2">
+                              {editingActivity.successors.length > 0 ? editingActivity.successors.join(', ') : 'None'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* Resources Tab */}
+              <TabsContent value="resources" className="space-y-4">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="resources">Resource Names</Label>
+                    <Textarea
+                      id="resources"
+                      value={formData.resources}
+                      onChange={(e) => setFormData({ ...formData, resources: e.target.value })}
+                      placeholder="Enter resource names separated by commas\ne.g., John Doe[100%], Excavator[50%], Mary Smith[25%]"
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="work">Work (hours)</Label>
+                      <Input
+                        id="work"
+                        type="number"
+                        min="0"
+                        value={formData.work}
+                        onChange={(e) => setFormData({ ...formData, work: parseFloat(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="resourceCost">Resource Cost ($)</Label>
+                      <Input
+                        id="resourceCost"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.resourceCost}
+                        onChange={(e) => setFormData({ ...formData, resourceCost: parseFloat(e.target.value) || 0 })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="cost">Total Cost ($)</Label>
+                    <Input
+                      id="cost"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.cost}
+                      onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Advanced Tab */}
+              <TabsContent value="advanced" className="space-y-4">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="baselineStart">Baseline Start</Label>
+                      <Input
+                        id="baselineStart"
+                        type="date"
+                        value={formData.baselineStart}
+                        onChange={(e) => setFormData({ ...formData, baselineStart: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="baselineFinish">Baseline Finish</Label>
+                      <Input
+                        id="baselineFinish"
+                        type="date"
+                        value={formData.baselineFinish}
+                        onChange={(e) => setFormData({ ...formData, baselineFinish: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="baselineDuration">Baseline Duration (days)</Label>
+                    <Input
+                      id="baselineDuration"
+                      type="number"
+                      min="0"
+                      value={formData.baselineDuration}
+                      onChange={(e) => setFormData({ ...formData, baselineDuration: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+
+                  {editingActivity && (
+                    <div>
+                      <Label>Calculated Values</Label>
+                      <div className="border rounded-lg p-3 bg-gray-50">
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="font-medium">Early Start:</span>
+                            <span className="ml-2">{editingActivity.earlyStart || 0}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium">Early Finish:</span>
+                            <span className="ml-2">{editingActivity.earlyFinish || 0}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium">Late Start:</span>
+                            <span className="ml-2">{editingActivity.lateStart || 0}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium">Late Finish:</span>
+                            <span className="ml-2">{editingActivity.lateFinish || 0}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium">Total Float:</span>
+                            <span className="ml-2">{editingActivity.totalFloat || 0} days</span>
+                          </div>
+                          <div>
+                            <span className="font-medium">Free Float:</span>
+                            <span className="ml-2">{editingActivity.freeFloat || 0} days</span>
+                          </div>
+                          <div className="col-span-2">
+                            <span className="font-medium">Critical Path:</span>
+                            <Badge className="ml-2" variant={editingActivity.isCritical ? 'destructive' : 'outline'}>
+                              {editingActivity.isCritical ? 'Yes' : 'No'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* Tracking Tab */}
+              <TabsContent value="tracking" className="space-y-4">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="actualStart">Actual Start</Label>
+                      <Input
+                        id="actualStart"
+                        type="date"
+                        value={formData.actualStart}
+                        onChange={(e) => setFormData({ ...formData, actualStart: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="actualFinish">Actual Finish</Label>
+                      <Input
+                        id="actualFinish"
+                        type="date"
+                        value={formData.actualFinish}
+                        onChange={(e) => setFormData({ ...formData, actualFinish: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="actualDuration">Actual Duration (days)</Label>
+                      <Input
+                        id="actualDuration"
+                        type="number"
+                        min="0"
+                        value={formData.actualDuration}
+                        onChange={(e) => setFormData({ ...formData, actualDuration: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="remainingDuration">Remaining Duration (days)</Label>
+                      <Input
+                        id="remainingDuration"
+                        type="number"
+                        min="0"
+                        value={formData.remainingDuration}
+                        onChange={(e) => setFormData({ ...formData, remainingDuration: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <Label>Physical % Complete</Label>
+                    <div className="flex items-center gap-4">
+                      <Slider
+                        value={[formData.physicalPercentComplete]}
+                        onValueChange={(value) => setFormData({ ...formData, physicalPercentComplete: value[0] })}
+                        max={100}
+                        step={5}
+                        className="flex-1"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formData.physicalPercentComplete}
+                          onChange={(e) => setFormData({ ...formData, physicalPercentComplete: parseInt(e.target.value) || 0 })}
+                          className="w-20"
+                        />
+                        <span className="text-sm text-gray-600">%</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Physical completion represents the actual work done, independent of duration.
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Notes Tab */}
+              <TabsContent value="notes" className="space-y-4">
+                <div>
+                  <Label htmlFor="notes">Task Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Enter any additional notes, comments, or documentation for this task..."
+                    rows={12}
+                    className="resize-none"
+                  />
+                  <p className="text-sm text-gray-600 mt-2">
+                    Use this space to document assumptions, risks, issues, or any other relevant information.
+                  </p>
+                </div>
+              </TabsContent>
+            </ScrollArea>
+          </Tabs>
+
+          <Separator className="my-4" />
+
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-600">
+              {editingActivity && (
+                <span>Last modified: {new Date().toLocaleDateString()}</span>
+              )}
+            </div>
+            <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowActivityDialog(false)}>
                 Cancel
               </Button>
               <Button onClick={handleSaveActivity}>
-                {editingActivity ? 'Update' : 'Add'} Activity
+                {editingActivity ? 'OK' : 'Add'}
               </Button>
             </div>
           </div>
