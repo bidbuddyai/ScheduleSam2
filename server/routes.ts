@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
   insertProjectSchema, insertActivitySchema, insertWbsSchema,
   insertCalendarSchema, insertRelationshipSchema, insertResourceSchema,
@@ -10,8 +11,22 @@ import {
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Projects
-  app.get("/api/projects", async (req, res) => {
+  // Auth middleware
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+  // Projects (Protected)
+  app.get("/api/projects", isAuthenticated, async (req, res) => {
     try {
       const projects = await storage.getProjects();
       res.json(projects);
@@ -21,7 +36,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/projects/:id", async (req, res) => {
+  app.get("/api/projects/:id", isAuthenticated, async (req, res) => {
     try {
       const project = await storage.getProject(req.params.id);
       if (!project) {
@@ -34,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/projects", async (req, res) => {
+  app.post("/api/projects", isAuthenticated, async (req, res) => {
     try {
       const projectData = insertProjectSchema.parse(req.body);
       const project = await storage.createProject(projectData);
@@ -49,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/projects/:id", async (req, res) => {
+  app.put("/api/projects/:id", isAuthenticated, async (req, res) => {
     try {
       const project = await storage.updateProject(req.params.id, req.body);
       if (!project) {

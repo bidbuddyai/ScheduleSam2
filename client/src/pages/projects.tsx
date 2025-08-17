@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import Layout from "@/components/Layout";
@@ -16,6 +16,10 @@ import type { Project, InsertProject } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/hooks/useAuth";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LogOut, User } from "lucide-react";
 
 const createProjectSchema = insertProjectSchema.extend({
   name: z.string().min(1, "Project name is required"),
@@ -26,6 +30,7 @@ type CreateProjectForm = z.infer<typeof createProjectSchema>;
 export default function Projects() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   
   const { data: projects = [], isLoading, error } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -55,6 +60,17 @@ export default function Projects() {
       });
     },
     onError: (error: any) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
       toast({
         title: "Error creating project",
         description: error.message || "Failed to create project. Please try again.",
@@ -66,6 +82,20 @@ export default function Projects() {
   const onSubmit = (data: CreateProjectForm) => {
     createProjectMutation.mutate(data);
   };
+
+  // Check if user is authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+    }
+  }, [isAuthenticated, authLoading, toast]);
 
   if (isLoading) {
     return (

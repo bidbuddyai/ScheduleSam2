@@ -16,7 +16,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Activity, Wbs, Calendar, Relationship } from "@shared/schema";
 import type { z } from "zod";
-import { AlertTriangle, Calendar as CalendarIcon, Target, Users, Info } from "lucide-react";
+import { AlertTriangle, Calendar as CalendarIcon, Target, Users, Info, Plus, Code2 } from "lucide-react";
 
 const activityTypes = [
   { value: "Task", label: "Task", description: "Standard work activity with duration", icon: Target },

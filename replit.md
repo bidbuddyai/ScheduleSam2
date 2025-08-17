@@ -1,10 +1,17 @@
 # Overview
 
-ScheduleSam is a sophisticated CPM (Critical Path Method) scheduling application comparable to industry standards like MS Project and Primavera P6. The system provides comprehensive project scheduling capabilities including advanced activity types, WBS hierarchy management, activity codes, custom fields, and AI-powered scheduling assistance. Originally evolved from MeetBud, ScheduleSam transforms traditional construction management into a full-featured scheduling platform.
+ScheduleSam is a sophisticated CPM (Critical Path Method) scheduling application comparable to industry standards like MS Project and Primavera P6. The system provides comprehensive project scheduling capabilities including advanced activity types, WBS hierarchy management, activity codes, custom fields, and AI-powered scheduling assistance. Now featuring enterprise-grade authentication via Replit Auth with full user management, session handling, and secure multi-user access control.
 
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
+
+## Authentication & Security
+- **Replit Auth Integration**: Enterprise-grade OpenID Connect authentication with seamless single sign-on
+- **Session Management**: PostgreSQL-backed session storage with automatic refresh token handling
+- **User Profile Management**: Complete user profiles with avatars, names, and email addresses
+- **Secure Route Protection**: All API endpoints and application routes protected with authentication middleware
+- **Graceful Authentication Flow**: Automatic redirection to login for unauthenticated users with session preservation
 
 ## Advanced Scheduling Features
 - **Complete CPM Engine**: Full Critical Path Method calculations with forward/backward pass, float calculations, and constraint handling
@@ -31,14 +38,19 @@ Preferred communication style: Simple, everyday language.
 
 ## Backend Architecture
 - **Runtime**: Node.js with Express.js server using TypeScript
-- **Data Storage**: Currently uses in-memory storage (MemStorage) for MVP, with Drizzle ORM configured for future PostgreSQL migration
+- **Data Storage**: In-memory storage (MemStorage) for development with PostgreSQL-ready infrastructure
 - **API Design**: RESTful API with Zod schema validation for request/response handling
-- **Authentication**: Basic structure in place, currently using simple session-based approach
+- **Authentication**: Replit OpenID Connect authentication with PostgreSQL session storage and JWT token management
+- **Security**: All routes protected with authentication middleware, automatic token refresh, and secure cookie handling
 
 ## Database Design
-- **Schema**: Drizzle ORM with PostgreSQL schema definitions including projects, meetings, attendance, agenda items, action items, RFIs, submittals, fabrication tracking, and distribution lists
-- **Migration Strategy**: Drizzle Kit for database migrations and schema management
-- **Current State**: In-memory storage for development, ready for PostgreSQL deployment
+- **Schema**: Comprehensive Drizzle ORM schema with PostgreSQL including:
+  - **Authentication Tables**: Users and sessions for Replit Auth (mandatory tables)
+  - **Project Management**: Projects, activities, WBS, calendars, relationships
+  - **Collaboration**: Comments, attachments, audit logs, project members
+  - **Scheduling**: Baselines, TIA scenarios, resource assignments, schedule versions
+- **Migration Strategy**: Drizzle Kit for database migrations with `npm run db:push`
+- **Current State**: PostgreSQL database active with authentication tables deployed
 
 ## AI Integration Architecture
 - **LLM Provider**: Poe's OpenAI-compatible API endpoint (https://api.poe.com/v1)

@@ -8,13 +8,23 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import NotFound from "@/pages/not-found";
 import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/project-detail";
+import Landing from "@/pages/Landing";
+import { useAuth } from "@/hooks/useAuth";
 
 function Router() {
+  const { isAuthenticated, isLoading } = useAuth();
+
   return (
     <Switch>
-      <Route path="/" component={Projects} />
-      <Route path="/projects" component={Projects} />
-      <Route path="/project/:id" component={ProjectDetail} />
+      {isLoading || !isAuthenticated ? (
+        <Route path="/" component={Landing} />
+      ) : (
+        <>
+          <Route path="/" component={Projects} />
+          <Route path="/projects" component={Projects} />
+          <Route path="/project/:id" component={ProjectDetail} />
+        </>
+      )}
       <Route component={NotFound} />
     </Switch>
   );

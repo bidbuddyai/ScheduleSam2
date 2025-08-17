@@ -1,11 +1,21 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import Logo from "@/components/Logo";
-import { Menu, X, Calendar, User, Home, ArrowUp } from "lucide-react";
+import { Menu, X, Calendar, User, Home, ArrowUp, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,6 +25,7 @@ export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -58,10 +69,36 @@ export default function Layout({ children }: LayoutProps) {
               </a>
               <div className="flex items-center space-x-2 ml-6">
                 <ThemeToggle />
-                <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center transition-colors">
-                  <User className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                </div>
-                <span className="text-sm text-gray-700 dark:text-gray-300 hidden lg:block">John Smith</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-testid="button-user-menu">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
+                        <AvatarFallback>
+                          {user?.firstName?.[0]?.toUpperCase() || 'U'}
+                          {user?.lastName?.[0]?.toUpperCase() || ''}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {user?.firstName} {user?.lastName}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => window.location.href = "/api/logout"}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </nav>
 
@@ -116,17 +153,32 @@ export default function Layout({ children }: LayoutProps) {
                   
                   <div className="border-t p-4 space-y-4">
                     <div className="flex items-center gap-3 px-3 py-2">
-                      <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                        <User className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                      </div>
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
+                        <AvatarFallback>
+                          {user?.firstName?.[0]?.toUpperCase() || 'U'}
+                          {user?.lastName?.[0]?.toUpperCase() || ''}
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">John Smith</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">john.smith@company.com</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {user?.firstName} {user?.lastName}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
                       </div>
                     </div>
                     <div className="px-3">
                       <ThemeToggle />
                     </div>
+                    <Button 
+                      onClick={() => window.location.href = "/api/logout"}
+                      variant="outline"
+                      className="w-full justify-start"
+                      data-testid="button-logout-mobile"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </Button>
                   </div>
                 </div>
               </SheetContent>
