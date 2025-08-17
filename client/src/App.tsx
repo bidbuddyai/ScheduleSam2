@@ -9,6 +9,7 @@ import NotFound from "@/pages/not-found";
 import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/project-detail";
 import Landing from "@/pages/Landing";
+import Calendar from "@/pages/calendar";
 import { useAuth } from "@/hooks/useAuth";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
           <Route path="/" component={Projects} />
           <Route path="/projects" component={Projects} />
           <Route path="/project/:id" component={ProjectDetail} />
+          <Route path="/calendar" component={Calendar} />
         </>
       )}
       <Route component={NotFound} />

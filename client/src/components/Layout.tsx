@@ -64,9 +64,13 @@ export default function Layout({ children }: LayoutProps) {
               >
                 Projects
               </Link>
-              <a href="#" className="text-gray-600 hover:text-orange-600 transition-colors">
+              <Link 
+                href="/calendar" 
+                className="text-gray-600 hover:text-orange-600 transition-colors"
+                data-testid="nav-calendar"
+              >
                 Calendar
-              </a>
+              </Link>
               <div className="flex items-center space-x-2 ml-6">
                 <ThemeToggle />
                 <DropdownMenu>
@@ -141,14 +145,15 @@ export default function Layout({ children }: LayoutProps) {
                       <Home className="h-5 w-5" />
                       <span>Projects</span>
                     </Link>
-                    <a
-                      href="#"
+                    <Link
+                      href="/calendar"
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                      data-testid="nav-calendar-mobile"
                     >
                       <Calendar className="h-5 w-5" />
                       <span>Calendar</span>
-                    </a>
+                    </Link>
                   </nav>
                   
                   <div className="border-t p-4 space-y-4">

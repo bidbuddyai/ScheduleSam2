@@ -19,7 +19,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Plus, Building, AlertTriangle, ChevronRight } from "lucide-react";
 
 const createProjectSchema = insertProjectSchema.extend({
   name: z.string().min(1, "Project name is required"),
@@ -133,7 +133,7 @@ export default function Projects() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-12">
-                <i className="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                <AlertTriangle className="w-12 h-12 text-red-500 mb-4 mx-auto" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading projects</h3>
                 <p className="text-gray-500">Unable to load projects. Please refresh the page.</p>
               </div>
@@ -155,7 +155,7 @@ export default function Projects() {
                 className="bg-brand-secondary text-white hover:bg-brand-primary"
                 data-testid="button-new-project"
               >
-                <i className="fas fa-plus mr-2"></i>
+                <Plus className="w-4 h-4 mr-2" />
                 New Project
               </Button>
             </DialogTrigger>
@@ -219,7 +219,7 @@ export default function Projects() {
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
                   >
-                    <i className="fas fa-building text-4xl text-gray-400 mb-4"></i>
+                    <Building className="w-12 h-12 text-gray-400 mb-4 mx-auto" />
                   </motion.div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
                   <p className="text-gray-500 mb-4">Get started by creating your first project.</p>
@@ -256,7 +256,7 @@ export default function Projects() {
                           whileHover={{ scale: 1.1, rotate: 5 }}
                           transition={{ type: "spring", stiffness: 300 }}
                         >
-                          <i className="fas fa-building text-white"></i>
+                          <Building className="w-6 h-6 text-white" />
                         </motion.div>
                         <div className="text-right">
                           <div className="text-sm text-gray-500">
