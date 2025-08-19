@@ -319,44 +319,46 @@ export default function ProjectDetail() {
 
           {/* Main Tabs Interface */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-8">
-              <TabsTrigger value="schedule" className="flex items-center space-x-1">
-                <BarChart3 className="w-4 h-4" />
-                <span className="hidden sm:inline">Schedule</span>
-              </TabsTrigger>
-              <TabsTrigger value="gantt" className="flex items-center space-x-1">
-                <GitBranch className="w-4 h-4" />
-                <span className="hidden sm:inline">Gantt</span>
-              </TabsTrigger>
-              <TabsTrigger value="wbs" className="flex items-center space-x-1">
-                <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">WBS</span>
-              </TabsTrigger>
-              <TabsTrigger value="calendars" className="flex items-center space-x-1">
-                <CalendarIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Calendars</span>
-              </TabsTrigger>
-              <TabsTrigger value="baselines" className="flex items-center space-x-1">
-                <Target className="w-4 h-4" />
-                <span className="hidden sm:inline">Baselines</span>
-              </TabsTrigger>
-              <TabsTrigger value="variance" className="flex items-center space-x-1">
-                <AlertTriangle className="w-4 h-4" />
-                <span className="hidden sm:inline">Variance</span>
-              </TabsTrigger>
-              <TabsTrigger value="tia" className="flex items-center space-x-1">
-                <AlertTriangle className="w-4 h-4" />
-                <span className="hidden sm:inline">TIA</span>
-              </TabsTrigger>
-              <TabsTrigger value="collaboration" className="flex items-center space-x-1">
-                <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">Collaboration</span>
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="flex items-center space-x-1">
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">Settings</span>
-              </TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto">
+              <TabsList className="grid w-full grid-cols-5 lg:grid-cols-9 min-w-fit">
+                <TabsTrigger value="schedule" className="flex items-center justify-center gap-1 text-xs lg:text-sm">
+                  <BarChart3 className="w-3 h-3 lg:w-4 lg:h-4" />
+                  <span className="hidden md:inline">Schedule</span>
+                </TabsTrigger>
+                <TabsTrigger value="gantt" className="flex items-center justify-center gap-1 text-xs lg:text-sm">
+                  <GitBranch className="w-3 h-3 lg:w-4 lg:h-4" />
+                  <span className="hidden md:inline">Gantt</span>
+                </TabsTrigger>
+                <TabsTrigger value="wbs" className="flex items-center justify-center gap-1 text-xs lg:text-sm">
+                  <Users className="w-3 h-3 lg:w-4 lg:h-4" />
+                  <span className="hidden md:inline">WBS</span>
+                </TabsTrigger>
+                <TabsTrigger value="calendars" className="flex items-center justify-center gap-1 text-xs lg:text-sm">
+                  <CalendarIcon className="w-3 h-3 lg:w-4 lg:h-4" />
+                  <span className="hidden md:inline">Calendars</span>
+                </TabsTrigger>
+                <TabsTrigger value="baselines" className="flex items-center justify-center gap-1 text-xs lg:text-sm">
+                  <Target className="w-3 h-3 lg:w-4 lg:h-4" />
+                  <span className="hidden md:inline">Baselines</span>
+                </TabsTrigger>
+                <TabsTrigger value="variance" className="flex items-center justify-center gap-1 text-xs lg:text-sm lg:flex hidden">
+                  <AlertTriangle className="w-3 h-3 lg:w-4 lg:h-4" />
+                  <span className="hidden md:inline">Variance</span>
+                </TabsTrigger>
+                <TabsTrigger value="tia" className="flex items-center justify-center gap-1 text-xs lg:text-sm lg:flex hidden">
+                  <AlertTriangle className="w-3 h-3 lg:w-4 lg:h-4" />
+                  <span className="hidden md:inline">TIA</span>
+                </TabsTrigger>
+                <TabsTrigger value="collaboration" className="flex items-center justify-center gap-1 text-xs lg:text-sm lg:flex hidden">
+                  <Users className="w-3 h-3 lg:w-4 lg:h-4" />
+                  <span className="hidden md:inline">Collaboration</span>
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="flex items-center justify-center gap-1 text-xs lg:text-sm lg:flex hidden">
+                  <Settings className="w-3 h-3 lg:w-4 lg:h-4" />
+                  <span className="hidden md:inline">Settings</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="schedule" className="space-y-4">
               <ScheduleGrid 

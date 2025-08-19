@@ -363,7 +363,7 @@ export default function ActivityDialog({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">No WBS</SelectItem>
+                              <SelectItem value="none">No WBS</SelectItem>
                               {wbs.map((w) => (
                                 <SelectItem key={w.id} value={w.id}>
                                   {w.code} - {w.name}
@@ -389,7 +389,7 @@ export default function ActivityDialog({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">Default Calendar</SelectItem>
+                              <SelectItem value="default">Default Calendar</SelectItem>
                               {calendars.map((cal) => (
                                 <SelectItem key={cal.id} value={cal.id}>
                                   <CalendarIcon className="w-4 h-4 mr-2" />
@@ -608,7 +608,7 @@ export default function ActivityDialog({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">No Constraint</SelectItem>
+                              <SelectItem value="none">No Constraint</SelectItem>
                               {constraintTypes.map((constraint) => (
                                 <SelectItem key={constraint.value} value={constraint.value}>
                                   <Target className="w-4 h-4 mr-2" />

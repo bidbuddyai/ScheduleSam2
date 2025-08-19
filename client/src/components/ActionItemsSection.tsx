@@ -307,7 +307,7 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">Unassigned</SelectItem>
+                              <SelectItem value="unassigned">Unassigned</SelectItem>
                               {peopleList.map((person) => (
                                 <SelectItem key={person} value={person}>
                                   {person}
@@ -332,7 +332,7 @@ export default function ActionItemsSection({ meetingId, isEmbedded = false }: Ac
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">TBD</SelectItem>
+                              <SelectItem value="tbd">TBD</SelectItem>
                               {peopleList.map((person) => (
                                 <SelectItem key={person} value={person}>
                                   {person}
