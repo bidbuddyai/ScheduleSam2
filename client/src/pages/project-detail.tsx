@@ -40,8 +40,7 @@ import ConstraintManager from "@/components/ConstraintManager";
 import ProgressTracker from "@/components/ProgressTracker";
 import ActivityComments from "@/components/ActivityComments";
 import AuditTrail from "@/components/AuditTrail";
-import InteractiveScheduleCreator from "@/components/InteractiveScheduleCreator";
-import AssistantPanel from "@/components/AssistantPanel";
+import AIFloatingBubble from "@/components/AIFloatingBubble";
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -357,10 +356,6 @@ export default function ProjectDetail() {
                   <Users className="w-3 h-3 lg:w-4 lg:h-4" />
                   <span className="hidden md:inline">Collaboration</span>
                 </TabsTrigger>
-                <TabsTrigger value="ai" className="flex items-center justify-center gap-1 text-xs lg:text-sm">
-                  <Sparkles className="w-3 h-3 lg:w-4 lg:h-4" />
-                  <span className="hidden md:inline">AI Assistant</span>
-                </TabsTrigger>
                 <TabsTrigger value="settings" className="flex items-center justify-center gap-1 text-xs lg:text-sm lg:flex hidden">
                   <Settings className="w-3 h-3 lg:w-4 lg:h-4" />
                   <span className="hidden md:inline">Settings</span>
@@ -451,46 +446,7 @@ export default function ProjectDetail() {
               </div>
             </TabsContent>
 
-            <TabsContent value="ai" className="space-y-4">
-              <div className="grid gap-6">
-                {/* AI Schedule Creator */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-blue-600" />
-                      AI Schedule Generator
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <InteractiveScheduleCreator 
-                      projectId={id!}
-                      onScheduleCreated={() => {
-                        queryClient.invalidateQueries({ queryKey: ["/api/projects", id, "activities"] });
-                        toast({
-                          title: "Schedule Generated",
-                          description: "AI has successfully generated your schedule",
-                        });
-                      }}
-                    />
-                  </CardContent>
-                </Card>
 
-                {/* AI Assistant Panel */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Bot className="h-5 w-5 text-blue-600" />
-                      AI Scheduling Assistant
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <AssistantPanel 
-                      meetingId={id!}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
 
             <TabsContent value="settings" className="space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -518,6 +474,9 @@ export default function ProjectDetail() {
           calendars={calendars}
           activities={activities}
         />
+
+        {/* AI Floating Bubble */}
+        <AIFloatingBubble projectId={id!} />
       </main>
     </Layout>
   );

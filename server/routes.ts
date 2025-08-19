@@ -9,7 +9,7 @@ import {
   insertScheduleUpdateSchema
 } from "@shared/schema";
 import { z } from "zod";
-import { generateScheduleWithAI, analyzeLookaheadFile, identifyScheduleImpacts } from "./scheduleAITools";
+import { generateScheduleWithAI, identifyScheduleImpacts } from "./scheduleAITools";
 import { poe } from "./poeClient";
 import { SYSTEM_ASSISTANT, ToolSchema } from "./assistantTools";
 
@@ -845,7 +845,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/schedule/ai/analyze-lookahead", isAuthenticated, async (req, res) => {
     try {
-      const result = await analyzeLookaheadFile(req.body.content);
+      // Use the general AI generation with the file content as context
+      const result = await generateScheduleWithAI({
+        type: 'analyze',
+        userRequest: 'Analyze this lookahead schedule and extract activities',
+        uploadedFiles: req.body.uploadedFiles,
+        currentActivities: req.body.currentActivities
+      });
       res.json(result);
     } catch (error) {
       console.error("Error analyzing lookahead:", error);
