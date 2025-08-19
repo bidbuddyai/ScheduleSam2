@@ -89,9 +89,11 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
       const response = await apiRequest("POST", "/api/ai/assistant", {
         query: assistantQuery,
         model: selectedModel,
+        uploadedFiles, // Include uploaded files in chat context
         context: {
           projectId,
-          currentActivities: generatedActivities
+          currentActivities: generatedActivities,
+          hasFiles: uploadedFiles.length > 0
         }
       });
       return response.json();
@@ -181,12 +183,14 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
   };
 
   const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    const uploadedUrls = result.successful.map(file => file.uploadURL || "");
-    setUploadedFiles([...uploadedFiles, ...uploadedUrls]);
-    toast({
-      title: "Files Uploaded",
-      description: `${result.successful.length} file(s) ready for AI analysis`,
-    });
+    if (result.successful && result.successful.length > 0) {
+      const uploadedUrls = result.successful.map(file => file.uploadURL || "");
+      setUploadedFiles([...uploadedFiles, ...uploadedUrls]);
+      toast({
+        title: "Files Uploaded",
+        description: `${result.successful.length} file(s) ready for AI analysis`,
+      });
+    }
   };
 
   return (
@@ -283,6 +287,47 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                         />
                       </div>
 
+                      {/* File Upload for Generate Tab */}
+                      <div className="space-y-3">
+                        <Label>Upload Reference Documents (Optional)</Label>
+                        <div className="border-2 border-dashed border-gray-200 rounded-lg p-4">
+                          <ObjectUploader
+                            maxNumberOfFiles={5}
+                            maxFileSize={52428800} // 50MB
+                            onGetUploadParameters={handleGetUploadParameters}
+                            onComplete={handleUploadComplete}
+                            buttonClassName="w-full"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Plans, Specs, or Schedules
+                          </ObjectUploader>
+                          <p className="text-xs text-gray-500 text-center mt-2">
+                            PDF, MPP, XER, XML, XLSX, CSV, TXT (Max 50MB each)
+                          </p>
+                        </div>
+
+                        {uploadedFiles.length > 0 && (
+                          <div className="border rounded-lg p-3 bg-green-50">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FileText className="h-4 w-4 text-green-600" />
+                              <span className="text-sm font-medium text-green-700">
+                                Reference Files ({uploadedFiles.length})
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {uploadedFiles.map((file, index) => (
+                                <div key={index} className="text-xs bg-white px-2 py-1 rounded border">
+                                  {typeof file === 'string' ? file.split('/').pop() : file}
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-xs text-green-600 mt-2">
+                              AI will use these files as reference when generating your schedule
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
                       <Button
                         onClick={() => generateScheduleMutation.mutate()}
                         disabled={!projectDescription || generateScheduleMutation.isPending}
@@ -297,6 +342,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                           <>
                             <Sparkles className="h-4 w-4 mr-2" />
                             Generate Schedule with AI
+                            {uploadedFiles.length > 0 && ` (${uploadedFiles.length} files)`}
                           </>
                         )}
                       </Button>
@@ -313,6 +359,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                             <ScheduleEditor
                               activities={generatedActivities}
                               onActivitiesChange={setGeneratedActivities}
+                              projectStartDate={new Date().toISOString().split('T')[0]}
                             />
                           </div>
 
@@ -421,6 +468,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                           <div className="text-center text-gray-500 mt-8">
                             <Bot className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                             <p>Ask me anything about scheduling, CPM, or your project!</p>
+                            <p className="text-xs mt-2">You can also upload files for analysis</p>
                           </div>
                         ) : (
                           <div className="space-y-3">
@@ -444,19 +492,70 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                         )}
                       </div>
 
+                      {/* File Upload Area for Chat */}
+                      {uploadedFiles.length > 0 && (
+                        <div className="border rounded-lg p-3 bg-blue-50">
+                          <div className="flex items-center gap-2 mb-2">
+                            <FileText className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-medium text-blue-700">
+                              Files ready for analysis ({uploadedFiles.length})
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {uploadedFiles.slice(-3).map((file, index) => (
+                              <div key={index} className="text-xs bg-white px-2 py-1 rounded border">
+                                {typeof file === 'string' ? file.split('/').pop() : file}
+                              </div>
+                            ))}
+                            {uploadedFiles.length > 3 && (
+                              <div className="text-xs text-blue-600 px-2 py-1">
+                                +{uploadedFiles.length - 3} more
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex gap-2">
-                        <Textarea
-                          placeholder="Ask about CPM, scheduling, or get help with your project..."
-                          value={assistantQuery}
-                          onChange={(e) => setAssistantQuery(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              assistantMutation.mutate();
-                            }
-                          }}
-                          className="flex-1 min-h-[60px]"
-                        />
+                        <div className="flex flex-col gap-2 flex-1">
+                          <Textarea
+                            placeholder="Ask about CPM, scheduling, uploaded files, or get help with your project..."
+                            value={assistantQuery}
+                            onChange={(e) => setAssistantQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                assistantMutation.mutate();
+                              }
+                            }}
+                            className="min-h-[60px] resize-none"
+                          />
+                          
+                          {/* Quick upload button for chat */}
+                          <div className="flex gap-2">
+                            <ObjectUploader
+                              maxNumberOfFiles={5}
+                              maxFileSize={52428800} // 50MB
+                              onGetUploadParameters={handleGetUploadParameters}
+                              onComplete={handleUploadComplete}
+                              buttonClassName="text-xs h-8"
+                            >
+                              <Upload className="h-3 w-3 mr-1" />
+                              Upload Files
+                            </ObjectUploader>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setUploadedFiles([])}
+                              disabled={uploadedFiles.length === 0}
+                              className="text-xs h-8"
+                            >
+                              Clear Files
+                            </Button>
+                          </div>
+                        </div>
+                        
                         <Button
                           onClick={() => assistantMutation.mutate()}
                           disabled={!assistantQuery || assistantMutation.isPending}
