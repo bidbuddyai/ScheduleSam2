@@ -262,31 +262,31 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
 
       {/* AI Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-4xl h-[85vh] max-h-[800px] p-0 flex flex-col">
-          {/* Header - Fixed */}
-          <div className="px-6 py-4 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-slate-50 flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Sparkles className="h-5 w-5 text-blue-600" />
+        <DialogContent className="max-w-4xl w-[90vw] h-[90vh] p-0">
+          <div className="flex flex-col h-full">
+            {/* Header */}
+            <div className="px-6 py-4 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-slate-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Sparkles className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">AI Schedule Assistant</h2>
+                  <p className="text-sm text-gray-500">Powered by Poe API</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-semibold">AI Schedule Assistant</h2>
-                <p className="text-sm text-gray-500">Powered by Poe API</p>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
 
-          {/* Content - Scrollable */}
-          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-              <TabsList className="w-full rounded-none border-b flex-shrink-0">
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1">
+              <TabsList className="w-full rounded-none border-b shrink-0">
                 <TabsTrigger value="generate" className="flex-1">
                   <Calendar className="h-4 w-4 mr-2" />
                   Generate Schedule
@@ -301,9 +301,11 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex-1 overflow-y-auto p-6 min-h-0">
+              {/* Tab Content - Scrollable */}
+              <div className="flex-1 overflow-auto">
+                <div className="p-6">
                   {/* Generate Tab */}
-                  <TabsContent value="generate" className="space-y-4 mt-0">
+                  <TabsContent value="generate" className="space-y-4 mt-0 p-0">
                     <div className="space-y-4">
                       <div>
                         <Label>AI Model</Label>
@@ -369,16 +371,16 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                         </div>
 
                         {uploadedFiles.length > 0 && (
-                          <div className="border rounded-lg p-3 bg-green-50 max-h-[120px] overflow-y-auto">
+                          <div className="border rounded-lg p-3 bg-green-50">
                             <div className="flex items-center gap-2 mb-2">
                               <FileText className="h-4 w-4 text-green-600" />
                               <span className="text-sm font-medium text-green-700">
                                 Reference Files ({uploadedFiles.length})
                               </span>
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 max-h-[80px] overflow-y-auto">
                               {uploadedFiles.map((file, index) => (
-                                <div key={index} className="text-xs bg-white px-2 py-1 rounded border">
+                                <div key={index} className="text-xs bg-white px-2 py-1 rounded border flex-shrink-0">
                                   {typeof file === 'string' ? file.split('/').pop() : file}
                                 </div>
                               ))}
@@ -448,7 +450,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                   </TabsContent>
 
                   {/* Import Tab */}
-                  <TabsContent value="import" className="space-y-4 mt-0">
+                  <TabsContent value="import" className="space-y-4 mt-0 p-0">
                     <div className="space-y-4">
                       <Alert>
                         <FileText className="h-4 w-4" />
@@ -500,7 +502,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                       {uploadedFiles.length > 0 && (
                         <div className="space-y-2">
                           <Label>Uploaded Files ({uploadedFiles.length})</Label>
-                          <div className="border rounded-lg p-2 max-h-[120px] overflow-y-auto">
+                          <div className="border rounded-lg p-2 max-h-[100px] overflow-y-auto">
                             {uploadedFiles.map((file, index) => (
                               <div key={index} className="flex items-center gap-2 py-1">
                                 <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
@@ -532,7 +534,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                   </TabsContent>
 
                   {/* Assistant Tab */}
-                  <TabsContent value="assistant" className="space-y-4 mt-0">
+                  <TabsContent value="assistant" className="space-y-4 mt-0 p-0">
                     <div className="space-y-4">
                       <div className="border rounded-lg p-4 h-[400px] overflow-y-auto bg-gray-50">
                         {conversation.length === 0 ? (
@@ -565,21 +567,21 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
 
                       {/* File Upload Area for Chat */}
                       {uploadedFiles.length > 0 && (
-                        <div className="border rounded-lg p-3 bg-blue-50 max-h-[100px] overflow-y-auto">
+                        <div className="border rounded-lg p-3 bg-blue-50">
                           <div className="flex items-center gap-2 mb-2">
                             <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
                             <span className="text-sm font-medium text-blue-700">
                               Files ready for analysis ({uploadedFiles.length})
                             </span>
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-2 max-h-[60px] overflow-y-auto">
                             {uploadedFiles.slice(-3).map((file, index) => (
-                              <div key={index} className="text-xs bg-white px-2 py-1 rounded border">
+                              <div key={index} className="text-xs bg-white px-2 py-1 rounded border flex-shrink-0">
                                 {typeof file === 'string' ? file.split('/').pop() : file}
                               </div>
                             ))}
                             {uploadedFiles.length > 3 && (
-                              <div className="text-xs text-blue-600 px-2 py-1">
+                              <div className="text-xs text-blue-600 px-2 py-1 flex-shrink-0">
                                 +{uploadedFiles.length - 3} more
                               </div>
                             )}
@@ -642,6 +644,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                       </div>
                     </div>
                   </TabsContent>
+                </div>
               </div>
             </Tabs>
           </div>
