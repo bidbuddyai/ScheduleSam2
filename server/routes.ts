@@ -9,6 +9,9 @@ import {
   insertScheduleUpdateSchema
 } from "@shared/schema";
 import { z } from "zod";
+import { generateScheduleWithAI, analyzeLookaheadFile, identifyScheduleImpacts } from "./scheduleAITools";
+import { poe } from "./poeClient";
+import { SYSTEM_ASSISTANT, ToolSchema } from "./assistantTools";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -827,6 +830,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error calculating schedule:", error);
       res.status(500).json({ error: "Failed to calculate schedule", details: error.message });
     }
+  });
+
+  // AI Schedule Generation Routes
+  app.post("/api/schedule/ai/generate", isAuthenticated, async (req, res) => {
+    try {
+      const result = await generateScheduleWithAI(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating schedule with AI:", error);
+      res.status(500).json({ error: "Failed to generate schedule with AI" });
+    }
+  });
+
+  app.post("/api/schedule/ai/analyze-lookahead", isAuthenticated, async (req, res) => {
+    try {
+      const result = await analyzeLookaheadFile(req.body.content);
+      res.json(result);
+    } catch (error) {
+      console.error("Error analyzing lookahead:", error);
+      res.status(500).json({ error: "Failed to analyze lookahead file" });
+    }
+  });
+
+  app.post("/api/schedule/ai/identify-impacts", isAuthenticated, async (req, res) => {
+    try {
+      const result = await identifyScheduleImpacts(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("Error identifying impacts:", error);
+      res.status(500).json({ error: "Failed to identify schedule impacts" });
+    }
+  });
+
+  // AI Assistant Routes
+  app.post("/api/ai/assistant", isAuthenticated, async (req, res) => {
+    try {
+      const { query, model = "Claude-Sonnet-4", context } = req.body;
+      
+      const messages = [
+        { role: "system" as const, content: SYSTEM_ASSISTANT },
+        { role: "user" as const, content: `Context: ${JSON.stringify(context)}\n\nQuery: ${query}` }
+      ];
+
+      const response = await poe.chat.completions.create({
+        model,
+        messages,
+        stream: false
+      });
+
+      const responseText = response.choices[0]?.message?.content || "";
+      
+      // Try to parse as JSON for tool calls
+      try {
+        const parsed = JSON.parse(responseText);
+        const validated = ToolSchema.parse(parsed);
+        
+        // Execute the tool and return result
+        res.json({
+          tool: validated,
+          result: "Tool executed successfully",
+          speak: validated.speak
+        });
+      } catch {
+        // Return as plain text response
+        res.json({
+          response: responseText,
+          speak: responseText
+        });
+      }
+    } catch (error) {
+      console.error("Error with AI assistant:", error);
+      res.status(500).json({ error: "Failed to process AI assistant request" });
+    }
+  });
+
+  // Get available AI models
+  app.get("/api/ai/models", isAuthenticated, async (req, res) => {
+    res.json([
+      { value: "GPT-5", label: "GPT-5 (Latest)", category: "GPT" },
+      { value: "Claude-Sonnet-4", label: "Claude Sonnet 4", category: "Claude" },
+      { value: "Gemini-2.5-Pro", label: "Gemini 2.5 Pro", category: "Google" },
+      { value: "o3-pro", label: "o3 Pro (Reasoning)", category: "Reasoning" },
+      { value: "Grok-4", label: "Grok 4", category: "Other" }
+    ]);
   });
 
   // Health check
