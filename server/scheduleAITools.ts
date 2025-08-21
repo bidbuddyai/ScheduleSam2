@@ -142,9 +142,14 @@ Provide:
   try {
     const aiModel = request.model || 'Claude-3-Haiku';
     console.log(`Sending request to AI model ${aiModel}...`);
+    console.log('POE_API_KEY exists:', !!process.env.POE_API_KEY);
+    console.log('API Key first 10 chars:', process.env.POE_API_KEY?.substring(0, 10));
     
     let response;
     try {
+      console.log('Making POE API request to:', 'https://api.poe.com/v1/chat/completions');
+      console.log('Using model:', aiModel);
+      
       response = await poe.chat.completions.create({
         model: aiModel,
         messages: [
