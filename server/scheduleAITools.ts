@@ -142,13 +142,31 @@ Provide:
   try {
     const aiModel = request.model || 'Claude-3-Haiku';
     console.log(`Sending request to AI model ${aiModel}...`);
-    const response = await poe.chat.completions.create({
-      model: aiModel,
-      messages: [
-        { role: "system", content: SCHEDULE_SYSTEM_PROMPT },
-        { role: "user", content: prompt }
-      ]
-    });
+    
+    let response;
+    try {
+      response = await poe.chat.completions.create({
+        model: aiModel,
+        messages: [
+          { role: "system", content: SCHEDULE_SYSTEM_PROMPT },
+          { role: "user", content: prompt }
+        ]
+      });
+    } catch (apiError: any) {
+      console.error('POE API Error:', apiError.message);
+      if (apiError.response) {
+        const errorText = await apiError.response.text();
+        console.error('POE API Response:', errorText.substring(0, 500));
+      }
+      // Return a simple error response instead of throwing
+      return {
+        activities: [],
+        summary: "AI generation failed - please check API key or try again",
+        criticalPath: [],
+        recommendations: ["Unable to generate schedule at this time. Please verify your POE API key is valid."]
+      };
+    }
+    
     console.log('AI response received');
     
     let content = response.choices[0].message.content || "{}";
