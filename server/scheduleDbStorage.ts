@@ -61,7 +61,6 @@ export class ScheduleDbStorage implements IStorage {
   async createProject(project: InsertProject): Promise<Project> {
     const [newProject] = await db.insert(schema.projects).values({
       ...project,
-      id: project.id || randomUUID(),
       colorPrimary: project.colorPrimary || "#10b981",
       colorSecondary: project.colorSecondary || "#059669",
     }).returning();
@@ -93,10 +92,7 @@ export class ScheduleDbStorage implements IStorage {
   }
 
   async createWbs(wbs: InsertWbs): Promise<Wbs> {
-    const [newWbs] = await db.insert(schema.wbs).values({
-      ...wbs,
-      id: wbs.id || randomUUID(),
-    }).returning();
+    const [newWbs] = await db.insert(schema.wbs).values(wbs).returning();
     return newWbs;
   }
 
@@ -125,10 +121,7 @@ export class ScheduleDbStorage implements IStorage {
   }
 
   async createActivity(activity: InsertActivity): Promise<Activity> {
-    const [newActivity] = await db.insert(schema.activities).values({
-      ...activity,
-      id: activity.id || randomUUID(),
-    }).returning();
+    const [newActivity] = await db.insert(schema.activities).values(activity).returning();
     return newActivity;
   }
 
@@ -172,10 +165,7 @@ export class ScheduleDbStorage implements IStorage {
   }
 
   async createRelationship(relationship: InsertRelationship): Promise<Relationship> {
-    const [newRel] = await db.insert(schema.relationships).values({
-      ...relationship,
-      id: relationship.id || randomUUID(),
-    }).returning();
+    const [newRel] = await db.insert(schema.relationships).values(relationship).returning();
     return newRel;
   }
 
@@ -208,10 +198,7 @@ export class ScheduleDbStorage implements IStorage {
   }
 
   async createCalendar(calendar: InsertCalendar): Promise<Calendar> {
-    const [newCalendar] = await db.insert(schema.calendars).values({
-      ...calendar,
-      id: calendar.id || randomUUID(),
-    }).returning();
+    const [newCalendar] = await db.insert(schema.calendars).values(calendar).returning();
     return newCalendar;
   }
 
@@ -240,10 +227,7 @@ export class ScheduleDbStorage implements IStorage {
   }
 
   async createResource(resource: InsertResource): Promise<Resource> {
-    const [newResource] = await db.insert(schema.resources).values({
-      ...resource,
-      id: resource.id || randomUUID(),
-    }).returning();
+    const [newResource] = await db.insert(schema.resources).values(resource).returning();
     return newResource;
   }
 
@@ -273,10 +257,7 @@ export class ScheduleDbStorage implements IStorage {
   }
 
   async createAssignment(assignment: InsertResourceAssignment): Promise<ResourceAssignment> {
-    const [newAssignment] = await db.insert(schema.resourceAssignments).values({
-      ...assignment,
-      id: assignment.id || randomUUID(),
-    }).returning();
+    const [newAssignment] = await db.insert(schema.resourceAssignments).values(assignment).returning();
     return newAssignment;
   }
 
@@ -307,12 +288,18 @@ export class ScheduleDbStorage implements IStorage {
     throw new Error("Baselines not yet implemented");
   }
 
-  async updateBaseline(id: string, updates: Partial<Baseline>): Promise<Baseline | undefined> {
-    return undefined;
+  async setActiveBaseline(projectId: string, baselineId: string): Promise<void> {
+    // Stub implementation
+    return;
   }
 
   async deleteBaseline(id: string): Promise<boolean> {
     return false;
+  }
+
+  async calculateVariance(projectId: string, baselineId?: string): Promise<any[]> {
+    // Stub implementation
+    return [];
   }
 
   // TIA Scenarios - stub implementations
@@ -376,12 +363,12 @@ export class ScheduleDbStorage implements IStorage {
     return [];
   }
 
-  async createScheduleUpdate(update: InsertScheduleUpdate): Promise<ScheduleUpdate> {
-    throw new Error("Schedule updates not yet implemented");
+  async getScheduleUpdate(id: string): Promise<ScheduleUpdate | undefined> {
+    return undefined;
   }
 
-  async applyScheduleUpdate(updateId: string): Promise<boolean> {
-    return false;
+  async createScheduleUpdate(update: InsertScheduleUpdate): Promise<ScheduleUpdate> {
+    throw new Error("Schedule updates not yet implemented");
   }
 
   // Import/Export History - stub implementations
@@ -424,11 +411,11 @@ export class ScheduleDbStorage implements IStorage {
   }
 
   // Activity Comments - stub implementations
-  async getCommentsByActivity(activityId: string): Promise<ActivityComment[]> {
+  async getActivityComments(activityId: string): Promise<ActivityComment[]> {
     return [];
   }
 
-  async createComment(comment: InsertActivityComment): Promise<ActivityComment> {
+  async createActivityComment(comment: InsertActivityComment): Promise<ActivityComment> {
     throw new Error("Activity comments not yet implemented");
   }
 
@@ -463,16 +450,12 @@ export class ScheduleDbStorage implements IStorage {
     return [];
   }
 
-  async addProjectMember(member: InsertProjectMember): Promise<ProjectMember> {
+  async createProjectMember(member: InsertProjectMember): Promise<ProjectMember> {
     throw new Error("Project members not yet implemented");
   }
 
   async updateProjectMember(memberId: string, updates: Partial<ProjectMember>): Promise<ProjectMember | undefined> {
     return undefined;
-  }
-
-  async removeProjectMember(memberId: string): Promise<boolean> {
-    return false;
   }
 
   // Schedule Versions - stub implementations
