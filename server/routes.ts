@@ -833,9 +833,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Schedule Generation Routes
-  app.post("/api/schedule/ai/generate", isAuthenticated, async (req, res) => {
+  app.post("/api/projects/:projectId/schedules/generate-ai", isAuthenticated, async (req, res) => {
     try {
-      const result = await generateScheduleWithAI(req.body);
+      const result = await generateScheduleWithAI({
+        ...req.body,
+        projectId: req.params.projectId
+      });
       res.json(result);
     } catch (error) {
       console.error("Error generating schedule with AI:", error);
