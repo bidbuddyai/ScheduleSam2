@@ -153,17 +153,92 @@ Provide:
         ]
       });
     } catch (apiError: any) {
-      console.error('POE API Error:', apiError.message);
-      if (apiError.response) {
-        const errorText = await apiError.response.text();
-        console.error('POE API Response:', errorText.substring(0, 500));
+      console.error('POE API Error:', apiError);
+      console.error('POE API Error Message:', apiError.message);
+      console.error('POE API Error Stack:', apiError.stack);
+      
+      // Check if we have a response body to log
+      if (apiError.response && apiError.response.body) {
+        try {
+          const bodyText = await apiError.response.text();
+          console.error('POE API Response Body:', bodyText.substring(0, 1000));
+        } catch (e) {
+          console.error('Could not read response body');
+        }
       }
-      // Return a simple error response instead of throwing
+      
+      // Return a simple demo schedule instead of failing completely
+      const demoActivities = [
+        {
+          id: crypto.randomUUID(),
+          activityId: "A001",
+          activityName: "Site Preparation",
+          duration: 5,
+          predecessors: [],
+          successors: ["A002"],
+          status: "Not Started",
+          percentComplete: 0,
+          startDate: request.startDate || new Date().toISOString().split('T')[0],
+          finishDate: new Date(new Date(request.startDate || new Date()).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          wbs: "1.1",
+          resources: ["Crew A"],
+          earlyStart: 0,
+          earlyFinish: 5,
+          lateStart: 0,
+          lateFinish: 5,
+          totalFloat: 0,
+          freeFloat: 0,
+          isCritical: true
+        },
+        {
+          id: crypto.randomUUID(),
+          activityId: "A002",
+          activityName: "Foundation Work",
+          duration: 10,
+          predecessors: ["A001"],
+          successors: ["A003"],
+          status: "Not Started",
+          percentComplete: 0,
+          startDate: new Date(new Date(request.startDate || new Date()).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          finishDate: new Date(new Date(request.startDate || new Date()).getTime() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          wbs: "1.2",
+          resources: ["Crew B"],
+          earlyStart: 5,
+          earlyFinish: 15,
+          lateStart: 5,
+          lateFinish: 15,
+          totalFloat: 0,
+          freeFloat: 0,
+          isCritical: true
+        },
+        {
+          id: crypto.randomUUID(),
+          activityId: "A003",
+          activityName: "Structure Assembly",
+          duration: 15,
+          predecessors: ["A002"],
+          successors: [],
+          status: "Not Started",
+          percentComplete: 0,
+          startDate: new Date(new Date(request.startDate || new Date()).getTime() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          finishDate: new Date(new Date(request.startDate || new Date()).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          wbs: "1.3",
+          resources: ["Crew C"],
+          earlyStart: 15,
+          earlyFinish: 30,
+          lateStart: 15,
+          lateFinish: 30,
+          totalFloat: 0,
+          freeFloat: 0,
+          isCritical: true
+        }
+      ];
+      
       return {
-        activities: [],
-        summary: "AI generation failed - please check API key or try again",
-        criticalPath: [],
-        recommendations: ["Unable to generate schedule at this time. Please verify your POE API key is valid."]
+        activities: demoActivities,
+        summary: "Demo schedule generated (AI service temporarily unavailable)",
+        criticalPath: ["A001", "A002", "A003"],
+        recommendations: ["This is a demo schedule. The AI service is currently unavailable. Please check your POE API key in environment variables."]
       };
     }
     
