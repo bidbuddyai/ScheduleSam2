@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Sparkles, 
@@ -66,19 +66,30 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
         model: selectedModel,
         uploadedFiles
       });
-      return response.json();
+      const data = await response.json();
+      return data;
     },
     onSuccess: (data) => {
-      setGeneratedActivities(data.activities || []);
-      toast({
-        title: "Schedule Generated",
-        description: `AI created ${data.activities?.length || 0} activities`,
-      });
+      console.log("Schedule generated:", data);
+      if (data.activities && data.activities.length > 0) {
+        setGeneratedActivities(data.activities);
+        toast({
+          title: "Schedule Generated",
+          description: `AI created ${data.activities.length} activities`,
+        });
+      } else {
+        toast({
+          title: "No Activities Generated",
+          description: "Try providing more details about your project",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error) => {
+      console.error("Generation error:", error);
       toast({
         title: "Generation Failed",
-        description: error.message,
+        description: error.message || "Failed to generate schedule",
         variant: "destructive",
       });
     },
@@ -262,8 +273,12 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
 
       {/* AI Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-4xl w-[90vw] h-[90vh] p-0">
-          <div className="flex flex-col h-full">
+        <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] overflow-hidden p-0">
+          <DialogTitle className="sr-only">AI Schedule Assistant</DialogTitle>
+          <DialogDescription className="sr-only">
+            AI-powered schedule generation and analysis tool
+          </DialogDescription>
+          <div className="flex flex-col h-full max-h-[90vh]">
             {/* Header */}
             <div className="px-6 py-4 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-slate-50 shrink-0">
               <div className="flex items-center gap-3">
@@ -302,7 +317,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
               </TabsList>
 
               {/* Tab Content - Scrollable */}
-              <div className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-y-auto max-h-[calc(90vh-8rem)]">
                 <div className="p-6">
                   {/* Generate Tab */}
                   <TabsContent value="generate" className="space-y-4 mt-0 p-0">
