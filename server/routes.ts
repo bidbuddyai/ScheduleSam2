@@ -833,6 +833,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Schedule Generation Routes
+  
+  // Route for AI Floating Bubble
+  app.post("/api/schedule/ai/generate", isAuthenticated, async (req, res) => {
+    try {
+      console.log('AI Floating Bubble generation request:', req.body);
+      const result = await generateScheduleWithAI(req.body);
+      
+      // If activities were generated, save them to the first/current project
+      if (result.activities && result.activities.length > 0) {
+        const projects = await storage.getProjects();
+        if (projects.length > 0) {
+          const projectId = projects[0].id;
+          
+          // Clear existing activities
+          const existingActivities = await storage.getActivitiesByProject(projectId);
+          for (const activity of existingActivities) {
+            await storage.deleteActivity(projectId, activity.id);
+          }
+          
+          // Add new activities
+          for (const activity of result.activities) {
+            await storage.createActivity(projectId, activity);
+          }
+        }
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating schedule with AI:", error);
+      res.status(500).json({ error: "Failed to generate schedule with AI" });
+    }
+  });
+
   app.post("/api/projects/:projectId/schedules/generate-ai", isAuthenticated, async (req, res) => {
     try {
       const result = await generateScheduleWithAI({
