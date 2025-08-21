@@ -18,10 +18,10 @@ import type {
   User, UpsertUser
 } from "@shared/schema";
 import type { IStorage } from "./storage";
-import * as ws from "ws";
+import ws from "ws";
 
 // Configure Neon to use WebSocket
-neonConfig.webSocketConstructor = ws;
+neonConfig.webSocketConstructor = ws.WebSocket || ws;
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });

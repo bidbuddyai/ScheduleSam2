@@ -1092,5 +1092,5 @@ export class MemStorage implements IStorage {
 // Import database storage
 import { ScheduleDbStorage } from "./scheduleDbStorage";
 
-// Create and export storage instance - using memory storage for now (database connection issues)
-export const storage = new MemStorage();
+// Create and export storage instance - using database storage for persistence
+export const storage = new ScheduleDbStorage();
