@@ -75,6 +75,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
   const [projectDescription, setProjectDescription] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [generatedActivities, setGeneratedActivities] = useState<Activity[]>([]);
+  const [forceUpdate, setForceUpdate] = useState(0);
   const [assistantQuery, setAssistantQuery] = useState("");
   const [conversation, setConversation] = useState<Array<{ role: string; content: string }>>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -111,20 +112,31 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
       }
     },
     onSuccess: (data) => {
-      console.log("Schedule generated:", data);
+      console.log("Schedule generated - full response:", data);
+      console.log("Activities in response:", data?.activities);
+      console.log("Number of activities:", data?.activities?.length);
+      
       if (data && data.activities && data.activities.length > 0) {
         // Ensure activities are properly formatted
-        const formattedActivities = data.activities.map((act: any) => ({
-          ...act,
-          id: act.id || crypto.randomUUID(),
-          activityId: act.activityId || act.id,
-          activityName: act.activityName || act.name || "Unnamed Activity",
-          duration: act.duration || 1,
-          startDate: act.startDate || new Date().toISOString().split('T')[0],
-          finishDate: act.finishDate || new Date(Date.now() + (act.duration || 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-        }));
+        const formattedActivities = data.activities.map((act: any, index: number) => {
+          const formatted = {
+            ...act,
+            id: act.id || crypto.randomUUID(),
+            activityId: act.activityId || act.id || `ACT-${index + 1}`,
+            activityName: act.activityName || act.name || act.activity_name || "Unnamed Activity",
+            duration: act.duration || act.original_duration || 1,
+            startDate: act.startDate || act.start_date || new Date().toISOString().split('T')[0],
+            finishDate: act.finishDate || act.finish_date || new Date(Date.now() + (act.duration || 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          };
+          console.log(`Activity ${index + 1} formatted:`, formatted);
+          return formatted;
+        });
         
+        console.log("Setting generatedActivities to:", formattedActivities);
         setGeneratedActivities(formattedActivities);
+        
+        // Force React to update by also updating a separate state
+        setForceUpdate(prev => prev + 1);
         
         // Show success with recommendations if available
         const message = data.summary || `AI created ${formattedActivities.length} activities`;
@@ -133,9 +145,16 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
           description: message,
         });
         
-        // Log for debugging
-        console.log("Activities set:", formattedActivities);
+        // Verify the state was updated
+        setTimeout(() => {
+          console.log("After setState - checking state");
+          setGeneratedActivities(prevActivities => {
+            console.log("Current generatedActivities in state:", prevActivities);
+            return prevActivities;
+          });
+        }, 100);
       } else {
+        console.log("No activities found in response");
         toast({
           title: "No Activities Generated",
           description: "Try providing more details about your project",
@@ -497,16 +516,25 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                         )}
                       </Button>
 
+                      {/* Debug: Always show this section to see state */}
+                      <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded space-y-1">
+                        <div>Debug: Activities in state: {generatedActivities.length} | Force update: {forceUpdate}</div>
+                        {generatedActivities.length > 0 && (
+                          <div>First activity: {generatedActivities[0]?.activityName || "No name"}</div>
+                        )}
+                      </div>
+
                       {generatedActivities.length > 0 && (
-                        <div className="space-y-4">
-                          <Alert>
-                            <AlertDescription>
-                              Generated {generatedActivities.length} activities. Review and save to project.
+                        <div className="space-y-4" key={`generated-${generatedActivities.length}-${forceUpdate}`}>
+                          <Alert className="bg-green-50 border-green-200">
+                            <AlertDescription className="text-green-800">
+                              ✓ Successfully generated {generatedActivities.length} activities. Review and save to project.
                             </AlertDescription>
                           </Alert>
                           
                           <div className="max-h-[300px] overflow-y-auto border rounded-lg">
                             <ScheduleEditor
+                              key={`editor-${generatedActivities.length}-${forceUpdate}`}
                               activities={generatedActivities}
                               onActivitiesChange={setGeneratedActivities}
                               projectStartDate={new Date().toISOString().split('T')[0]}
