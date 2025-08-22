@@ -840,22 +840,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('AI Floating Bubble generation request:', req.body);
       const result = await generateScheduleWithAI(req.body);
       
-      // If activities were generated, save them to the first/current project
+      // If activities were generated, save them to a project
       if (result.activities && result.activities.length > 0) {
         const projects = await storage.getProjects();
+        let projectId: string;
+        
         if (projects.length > 0) {
-          const projectId = projects[0].id;
-          
-          // Clear existing activities
-          const existingActivities = await storage.getActivitiesByProject(projectId);
-          for (const activity of existingActivities) {
-            await storage.deleteActivity(projectId, activity.id);
-          }
-          
-          // Add new activities
-          for (const activity of result.activities) {
-            await storage.createActivity(projectId, activity);
-          }
+          projectId = projects[0].id;
+        } else {
+          // Create a default project if none exists
+          const newProject = await storage.createProject({
+            projectName: req.body.projectDescription || "AI Generated Schedule",
+            description: req.body.userRequest || "Generated with AI",
+            startDate: req.body.startDate || new Date().toISOString().split('T')[0],
+            endDate: req.body.endDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: "Planning",
+            projectManager: "AI Assistant"
+          });
+          projectId = newProject.id;
+        }
+        
+        // Clear existing activities
+        const existingActivities = await storage.getActivitiesByProject(projectId);
+        for (const activity of existingActivities) {
+          await storage.deleteActivity(projectId, activity.id);
+        }
+        
+        // Add new activities with proper projectId
+        for (const activity of result.activities) {
+          await storage.createActivity(projectId, {
+            ...activity,
+            projectId: projectId  // Ensure projectId is set
+          });
         }
       }
       
