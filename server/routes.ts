@@ -174,6 +174,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects/:projectId/activities", async (req, res) => {
     try {
+      console.log('ACTIVITY CREATE REQUEST BODY:', JSON.stringify(req.body, null, 2));
+      
       // Transform AI format to database format BEFORE validation
       const transformedActivity = {
         projectId: req.params.projectId,
@@ -199,6 +201,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         responsibility: null,
         trade: null
       };
+      
+      console.log('TRANSFORMED ACTIVITY:', JSON.stringify(transformedActivity, null, 2));
       
       const activityData = insertActivitySchema.parse(transformedActivity);
       const activity = await storage.createActivity(activityData);
