@@ -111,23 +111,19 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
       }
     },
     onSuccess: (data) => {
-      console.log("onSuccess called with data:", data);
-      console.log("data.activities:", data?.activities);
-      console.log("data.activities length:", data?.activities?.length);
-      
       if (data && data.activities && data.activities.length > 0) {
-        // Create a completely new array to ensure React detects the change
+        // Map AI activities to our format
         const newActivities = data.activities.map((act: any, index: number) => ({
           id: act.id || crypto.randomUUID(),
-          activityId: act.activityId || act.id || `ACT-${index + 1}`,
-          activityName: act.activityName || act.name || act.activity_name || "Unnamed Activity",
+          activityId: act.activityId || `ACT-${index + 1}`,
+          activityName: act.activityName || "Unnamed Activity",
           duration: parseInt(act.duration) || 1,
           predecessors: act.predecessors || [],
           successors: act.successors || [],
-          status: act.status || "Not Started",
-          percentComplete: act.percentComplete || 0,
-          startDate: act.startDate || act.start_date || new Date().toISOString().split('T')[0],
-          finishDate: act.finishDate || act.finish_date || new Date(Date.now() + (act.duration || 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          status: "Not Started" as const,
+          percentComplete: 0,
+          startDate: act.startDate || new Date().toISOString().split('T')[0],
+          finishDate: act.finishDate || new Date(Date.now() + (act.duration || 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           wbs: act.wbs || "",
           resources: act.resources || [],
           earlyStart: act.earlyStart || 0,
@@ -139,23 +135,13 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
           isCritical: act.isCritical || false
         }));
         
-        console.log("Setting activities, count:", newActivities.length);
-        console.log("First activity:", newActivities[0]);
+        setGeneratedActivities(newActivities);
         
-        // Clear and then set to force re-render
-        setGeneratedActivities([]);
-        setTimeout(() => {
-          setGeneratedActivities(newActivities);
-          console.log("Activities set, should be visible now");
-        }, 0);
-        
-        // Show success message
         toast({
           title: "Schedule Generated Successfully!",
           description: `AI created ${newActivities.length} activities for your project`,
         });
       } else {
-        console.log("No activities in response");
         toast({
           title: "No Activities Generated",
           description: "Try providing more details about your project",
@@ -525,12 +511,20 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                             </AlertDescription>
                           </Alert>
                           
-                          <div className="max-h-[300px] overflow-y-auto border rounded-lg">
-                            <ScheduleEditor
-                              activities={generatedActivities}
-                              onActivitiesChange={setGeneratedActivities}
-                              projectStartDate={new Date().toISOString().split('T')[0]}
-                            />
+                          <div className="max-h-[300px] overflow-y-auto border rounded-lg p-4 bg-white">
+                            <div className="space-y-2">
+                              {generatedActivities.map((activity, index) => (
+                                <div key={activity.id || index} className="p-3 border rounded bg-gray-50">
+                                  <div className="font-medium">{activity.activityName}</div>
+                                  <div className="text-sm text-gray-600">
+                                    Duration: {activity.duration} days | ID: {activity.activityId}
+                                  </div>
+                                  {activity.wbs && (
+                                    <div className="text-xs text-gray-500">WBS: {activity.wbs}</div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
 
                           <Button
