@@ -59,15 +59,28 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
   // Generate schedule mutation
   const generateScheduleMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/schedule/ai/generate", {
-        type: "create",
-        projectDescription,
-        userRequest: projectDescription,
-        model: selectedModel,
-        uploadedFiles
-      });
-      const data = await response.json();
-      return data;
+      try {
+        const response = await apiRequest("POST", "/api/schedule/ai/generate", {
+          type: "create",
+          projectDescription,
+          userRequest: projectDescription,
+          model: selectedModel,
+          uploadedFiles
+        });
+        
+        // Check if response is ok before parsing JSON
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Server error:", errorText);
+          throw new Error("Failed to generate schedule - server error");
+        }
+        
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error("Generation error:", error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       console.log("Schedule generated:", data);
@@ -85,13 +98,15 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
         });
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Generation error:", error);
       toast({
         title: "Generation Failed",
-        description: error.message || "Failed to generate schedule",
+        description: error.message || "Failed to generate schedule. Please try again.",
         variant: "destructive",
       });
+      // Reset state on error
+      setGeneratedActivities([]);
     },
   });
 
