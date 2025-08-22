@@ -1071,6 +1071,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ]);
   });
 
+  // Object upload endpoint
+  app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
+    try {
+      const fileName = req.query.fileName as string || 'uploaded_file';
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Generate a unique filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const uniqueFileName = `${timestamp}_${sanitizedFileName}`;
+      
+      // Create upload URL for object storage
+      const objectStorage = new ObjectStorageService();
+      const uploadUrl = await objectStorage.generatePresignedUploadUrl(uniqueFileName);
+      
+      res.json({
+        method: "PUT",
+        url: uploadUrl,
+        fileName: uniqueFileName
+      });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "healthy", service: "ScheduleSam API" });

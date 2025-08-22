@@ -295,22 +295,40 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
     }
   };
 
-  const handleGetUploadParameters = async () => {
-    const response = await apiRequest("POST", "/api/objects/upload", {});
+  const handleGetUploadParameters = async (file: any) => {
+    const response = await fetch(`/api/objects/upload?fileName=${encodeURIComponent(file.name)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error("Failed to get upload parameters");
+    }
+    
     const data = await response.json();
     return {
       method: "PUT" as const,
-      url: data.uploadURL,
+      url: data.url,
     };
   };
 
   const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     if (result.successful && result.successful.length > 0) {
-      const uploadedUrls = result.successful.map(file => file.uploadURL || "");
-      setUploadedFiles([...uploadedFiles, ...uploadedUrls]);
+      const fileNames = result.successful.map(file => file.name || "unknown_file");
+      setUploadedFiles([...uploadedFiles, ...fileNames]);
       toast({
         title: "Files Uploaded",
         description: `${result.successful.length} file(s) ready for AI analysis`,
+      });
+    }
+    
+    if (result.failed && result.failed.length > 0) {
+      toast({
+        title: "Upload Failed",
+        description: `${result.failed.length} file(s) failed to upload`,
+        variant: "destructive",
       });
     }
   };
