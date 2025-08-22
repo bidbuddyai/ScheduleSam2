@@ -36,10 +36,34 @@ interface AIFloatingBubbleProps {
 
 // Available models from Poe's OpenAI-compatible API
 const POE_MODELS = [
+  // Claude Models
+  { value: "Claude-Sonnet-4", label: "Claude Sonnet 4 (Best Overall)", category: "Claude" },
+  { value: "Claude-3-Haiku", label: "Claude 3 Haiku (Fast)", category: "Claude" },
+  { value: "Claude-3-Opus", label: "Claude 3 Opus (Advanced)", category: "Claude" },
+  { value: "Claude-3.5-Sonnet", label: "Claude 3.5 Sonnet", category: "Claude" },
+  
+  // GPT Models
   { value: "GPT-5", label: "GPT-5 (Latest)", category: "GPT" },
-  { value: "Claude-Sonnet-4", label: "Claude Sonnet 4 (Best)", category: "Claude" },
+  { value: "GPT-4o", label: "GPT-4o (Optimized)", category: "GPT" },
+  { value: "GPT-4-Turbo", label: "GPT-4 Turbo", category: "GPT" },
+  { value: "GPT-3.5-Turbo", label: "GPT-3.5 Turbo (Fast)", category: "GPT" },
+  
+  // Google Models
   { value: "Gemini-2.5-Pro", label: "Gemini 2.5 Pro (1M context)", category: "Google" },
-  { value: "o3-pro", label: "o3 Pro (Reasoning)", category: "Reasoning" },
+  { value: "Gemini-1.5-Pro", label: "Gemini 1.5 Pro", category: "Google" },
+  { value: "Gemini-Pro", label: "Gemini Pro", category: "Google" },
+  
+  // Reasoning Models
+  { value: "o3-pro", label: "o3 Pro (Advanced Reasoning)", category: "Reasoning" },
+  { value: "o1-preview", label: "o1 Preview (Reasoning)", category: "Reasoning" },
+  { value: "o1-mini", label: "o1 Mini (Fast Reasoning)", category: "Reasoning" },
+  
+  // Other Models
+  { value: "Grok-4", label: "Grok 4 (xAI)", category: "Other" },
+  { value: "Llama-3.1-405B", label: "Llama 3.1 405B", category: "Other" },
+  { value: "Llama-3.1-70B", label: "Llama 3.1 70B", category: "Other" },
+  { value: "Mixtral-8x7B", label: "Mixtral 8x7B", category: "Other" },
+  { value: "DeepSeek-V3", label: "DeepSeek V3", category: "Other" },
 ];
 
 export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
@@ -364,12 +388,23 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
-                            {POE_MODELS.map(model => (
-                              <SelectItem key={model.value} value={model.value}>
-                                {model.label}
-                              </SelectItem>
-                            ))}
+                          <SelectContent className="max-h-[400px]">
+                            {/* Group models by category */}
+                            {["Claude", "GPT", "Google", "Reasoning", "Other"].map(category => {
+                              const categoryModels = POE_MODELS.filter(m => m.category === category);
+                              return (
+                                <div key={category}>
+                                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">
+                                    {category}
+                                  </div>
+                                  {categoryModels.map(model => (
+                                    <SelectItem key={model.value} value={model.value}>
+                                      {model.label}
+                                    </SelectItem>
+                                  ))}
+                                </div>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                       </div>
