@@ -840,60 +840,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('AI Floating Bubble generation request:', req.body);
       const result = await generateScheduleWithAI(req.body);
       
-      // If activities were generated, save them to a project
+      // Always return the AI result first, even if database saving fails
+      console.log('AI generated activities count:', result.activities?.length);
+      
+      // Try to save to database but don't fail if it doesn't work
       if (result.activities && result.activities.length > 0) {
-        const projects = await storage.getProjects();
-        let projectId: string;
-        
-        if (projects.length > 0) {
-          projectId = projects[0].id;
-        } else {
-          // Create a default project if none exists
-          const newProject = await storage.createProject({
-            projectName: req.body.projectDescription || "AI Generated Schedule",
-            description: req.body.userRequest || "Generated with AI",
-            startDate: req.body.startDate || new Date().toISOString().split('T')[0],
-            endDate: req.body.endDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            status: "Planning",
-            projectManager: "AI Assistant"
-          });
-          projectId = newProject.id;
-        }
-        
-        // Clear existing activities
-        const existingActivities = await storage.getActivitiesByProject(projectId);
-        for (const activity of existingActivities) {
-          // Check storage type for correct method signature
-          if ('db' in storage) {
-            // Database storage expects just the activity id
-            await storage.deleteActivity(activity.id);
+        try {
+          const projects = await storage.getProjects();
+          let projectId: string;
+          
+          if (projects.length > 0) {
+            projectId = projects[0].id;
           } else {
-            // Memory storage expects projectId and activity id
-            await storage.deleteActivity(projectId, activity.id);
-          }
-        }
-        
-        // Add new activities with proper projectId
-        for (const activity of result.activities) {
-          // Check if using database storage (has different signature)
-          if ('db' in storage) {
-            // Database storage expects activity with projectId included
-            await storage.createActivity({
-              ...activity,
-              projectId: projectId
+            // Create a default project if none exists
+            const newProject = await storage.createProject({
+              projectName: req.body.projectDescription || "AI Generated Schedule",
+              description: req.body.userRequest || "Generated with AI",
+              startDate: req.body.startDate || new Date().toISOString().split('T')[0],
+              endDate: req.body.endDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              status: "Planning",
+              projectManager: "AI Assistant"
             });
-          } else {
-            // Memory storage expects projectId as separate parameter
-            await storage.createActivity(projectId, activity);
+            projectId = newProject.id;
           }
+          
+          // Clear existing activities
+          const existingActivities = await storage.getActivitiesByProject(projectId);
+          for (const activity of existingActivities) {
+            // Check storage type for correct method signature
+            if ('db' in storage) {
+              // Database storage expects just the activity id
+              await storage.deleteActivity(activity.id);
+            } else {
+              // Memory storage expects projectId and activity id
+              await storage.deleteActivity(projectId, activity.id);
+            }
+          }
+          
+          // Add new activities with proper projectId
+          for (const activity of result.activities) {
+            // Check if using database storage (has different signature)
+            if ('db' in storage) {
+              // Database storage expects activity with projectId included
+              await storage.createActivity({
+                ...activity,
+                projectId: projectId
+              });
+            } else {
+              // Memory storage expects projectId as separate parameter
+              await storage.createActivity(projectId, activity);
+            }
+          }
+          console.log('Activities saved to database successfully');
+        } catch (dbError) {
+          console.error('Database save failed but returning AI result anyway:', dbError);
+          // Don't throw - just log and continue with the AI result
         }
       }
       
+      // Return the actual AI-generated result
       res.json(result);
     } catch (error: any) {
       console.error("Error generating schedule with AI:", error);
       
-      // Return a demo schedule instead of failing completely
+      // Only return demo if AI generation itself failed
       const demoSchedule = {
         activities: [
           {
