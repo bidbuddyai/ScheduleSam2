@@ -111,9 +111,13 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
       }
     },
     onSuccess: (data) => {
+      console.log("onSuccess called with data:", data);
+      console.log("data.activities:", data?.activities);
+      console.log("data.activities length:", data?.activities?.length);
+      
       if (data && data.activities && data.activities.length > 0) {
         // Create a completely new array to ensure React detects the change
-        const newActivities = [...data.activities].map((act: any, index: number) => ({
+        const newActivities = data.activities.map((act: any, index: number) => ({
           id: act.id || crypto.randomUUID(),
           activityId: act.activityId || act.id || `ACT-${index + 1}`,
           activityName: act.activityName || act.name || act.activity_name || "Unnamed Activity",
@@ -135,8 +139,15 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
           isCritical: act.isCritical || false
         }));
         
-        // Set the new activities array
-        setGeneratedActivities(newActivities);
+        console.log("Setting activities, count:", newActivities.length);
+        console.log("First activity:", newActivities[0]);
+        
+        // Clear and then set to force re-render
+        setGeneratedActivities([]);
+        setTimeout(() => {
+          setGeneratedActivities(newActivities);
+          console.log("Activities set, should be visible now");
+        }, 0);
         
         // Show success message
         toast({
@@ -144,6 +155,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
           description: `AI created ${newActivities.length} activities for your project`,
         });
       } else {
+        console.log("No activities in response");
         toast({
           title: "No Activities Generated",
           description: "Try providing more details about your project",
