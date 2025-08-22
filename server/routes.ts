@@ -863,15 +863,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Clear existing activities
         const existingActivities = await storage.getActivitiesByProject(projectId);
         for (const activity of existingActivities) {
-          await storage.deleteActivity(projectId, activity.id);
+          // Check storage type for correct method signature
+          if ('db' in storage) {
+            // Database storage expects just the activity id
+            await storage.deleteActivity(activity.id);
+          } else {
+            // Memory storage expects projectId and activity id
+            await storage.deleteActivity(projectId, activity.id);
+          }
         }
         
         // Add new activities with proper projectId
         for (const activity of result.activities) {
-          await storage.createActivity(projectId, {
-            ...activity,
-            projectId: projectId  // Ensure projectId is set
-          });
+          // Check if using database storage (has different signature)
+          if ('db' in storage) {
+            // Database storage expects activity with projectId included
+            await storage.createActivity({
+              ...activity,
+              projectId: projectId
+            });
+          } else {
+            // Memory storage expects projectId as separate parameter
+            await storage.createActivity(projectId, activity);
+          }
         }
       }
       
