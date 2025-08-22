@@ -174,10 +174,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects/:projectId/activities", async (req, res) => {
     try {
-      const activityData = insertActivitySchema.parse({
-        ...req.body,
-        projectId: req.params.projectId
-      });
+      // Transform AI format to database format BEFORE validation
+      const transformedActivity = {
+        projectId: req.params.projectId,
+        activityId: req.body.activityId || `ACT-${crypto.randomUUID().slice(0, 8)}`,
+        name: req.body.name || req.body.activityName || "Unnamed Activity",
+        type: "Task",
+        originalDuration: Number(req.body.originalDuration || req.body.duration) || 1,
+        remainingDuration: Number(req.body.remainingDuration || req.body.duration) || 1,
+        durationUnit: "days",
+        earlyStart: String(req.body.earlyStart || req.body.startDate || new Date().toISOString().split('T')[0]),
+        earlyFinish: String(req.body.earlyFinish || req.body.finishDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+        actualStart: null,
+        actualFinish: null,
+        constraintType: null,
+        constraintDate: null,
+        percentComplete: Number(req.body.percentComplete) || 0,
+        status: req.body.status === "Not Started" ? "NotStarted" : 
+                req.body.status === "In Progress" ? "InProgress" : 
+                req.body.status === "Completed" ? "Completed" : "NotStarted",
+        totalFloat: Number(req.body.totalFloat) || 0,
+        freeFloat: Number(req.body.freeFloat) || 0,
+        isCritical: Boolean(req.body.isCritical) || false,
+        responsibility: null,
+        trade: null
+      };
+      
+      const activityData = insertActivitySchema.parse(transformedActivity);
       const activity = await storage.createActivity(activityData);
       res.json(activity);
     } catch (error) {
