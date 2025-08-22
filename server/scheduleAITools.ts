@@ -267,6 +267,39 @@ Provide:
     let result;
     try {
       result = JSON.parse(content);
+      
+      // Transform AI output to database format
+      if (result.activities && Array.isArray(result.activities)) {
+        result.activities = result.activities.map((activity: any) => ({
+          // Map field names and fix data types
+          activityId: activity.activityId || `ACT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+          name: activity.name || activity.activityName || "Unnamed Activity",
+          type: "Task",
+          originalDuration: Number(activity.originalDuration || activity.duration) || 1,
+          remainingDuration: Number(activity.remainingDuration || activity.duration) || 1,
+          durationUnit: "days",
+          earlyStart: String(activity.earlyStart || activity.startDate || new Date().toISOString().split('T')[0]),
+          earlyFinish: String(activity.earlyFinish || activity.finishDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+          actualStart: null,
+          actualFinish: null,
+          constraintType: null,
+          constraintDate: null,
+          percentComplete: Number(activity.percentComplete) || 0,
+          status: activity.status === "Not Started" ? "NotStarted" : 
+                  activity.status === "In Progress" ? "InProgress" : 
+                  activity.status === "Completed" ? "Completed" : "NotStarted",
+          totalFloat: Number(activity.totalFloat) || 0,
+          freeFloat: Number(activity.freeFloat) || 0,
+          isCritical: Boolean(activity.isCritical) || false,
+          responsibility: null,
+          trade: null,
+          // Keep other fields as-is
+          predecessors: activity.predecessors || [],
+          successors: activity.successors || [],
+          wbs: activity.wbs || "1.0",
+          resources: activity.resources || []
+        }));
+      }
     } catch (parseError) {
       console.error('Failed to parse AI response:', content.substring(0, 200));
       // Return a default structure if parsing fails
