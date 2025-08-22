@@ -905,14 +905,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.createActivity(projectId, activity);
             }
           }
-          console.log('Activities saved to database successfully');
+          console.log(`Successfully saved ${result.activities.length} activities to database`);
+          result.saved = true;
+          result.projectId = projectId;
         } catch (dbError) {
           console.error('Database save failed but returning AI result anyway:', dbError);
-          // Don't throw - just log and continue with the AI result
+          result.saved = false;
+          result.saveError = dbError.message;
         }
       }
       
-      // Return the actual AI-generated result
+      // Return the actual AI-generated result with save status
       res.json(result);
     } catch (error: any) {
       console.error("Error generating schedule with AI:", error);

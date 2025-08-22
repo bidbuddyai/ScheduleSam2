@@ -112,12 +112,25 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
     },
     onSuccess: (data) => {
       if (data && data.activities && data.activities.length > 0) {
-        // Map AI activities to our format
+        if (data.saved) {
+          // Activities were automatically saved to database
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "activities"] });
+          toast({
+            title: "Schedule Generated & Saved",
+            description: `Successfully generated and saved ${data.activities.length} activities to your project.`,
+          });
+          // Clear the generated activities since they're already saved
+          setGeneratedActivities([]);
+          setProjectDescription("");
+          return;
+        }
+        
+        // Map AI activities to our format for manual saving
         const newActivities = data.activities.map((act: any, index: number) => ({
           id: act.id || crypto.randomUUID(),
           activityId: act.activityId || `ACT-${index + 1}`,
-          activityName: act.activityName || "Unnamed Activity",
-          duration: parseInt(act.duration) || 1,
+          activityName: act.activityName || act.name || "Unnamed Activity",
+          duration: parseInt(act.originalDuration || act.duration) || 1,
           predecessors: act.predecessors || [],
           successors: act.successors || [],
           status: "Not Started" as const,
