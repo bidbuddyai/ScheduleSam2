@@ -75,7 +75,6 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
   const [projectDescription, setProjectDescription] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [generatedActivities, setGeneratedActivities] = useState<Activity[]>([]);
-  const [forceUpdate, setForceUpdate] = useState(0);
   const [assistantQuery, setAssistantQuery] = useState("");
   const [conversation, setConversation] = useState<Array<{ role: string; content: string }>>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -112,49 +111,39 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
       }
     },
     onSuccess: (data) => {
-      console.log("Schedule generated - full response:", data);
-      console.log("Activities in response:", data?.activities);
-      console.log("Number of activities:", data?.activities?.length);
-      
       if (data && data.activities && data.activities.length > 0) {
-        // Ensure activities are properly formatted
-        const formattedActivities = data.activities.map((act: any, index: number) => {
-          const formatted = {
-            ...act,
-            id: act.id || crypto.randomUUID(),
-            activityId: act.activityId || act.id || `ACT-${index + 1}`,
-            activityName: act.activityName || act.name || act.activity_name || "Unnamed Activity",
-            duration: act.duration || act.original_duration || 1,
-            startDate: act.startDate || act.start_date || new Date().toISOString().split('T')[0],
-            finishDate: act.finishDate || act.finish_date || new Date(Date.now() + (act.duration || 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          };
-          console.log(`Activity ${index + 1} formatted:`, formatted);
-          return formatted;
-        });
+        // Create a completely new array to ensure React detects the change
+        const newActivities = [...data.activities].map((act: any, index: number) => ({
+          id: act.id || crypto.randomUUID(),
+          activityId: act.activityId || act.id || `ACT-${index + 1}`,
+          activityName: act.activityName || act.name || act.activity_name || "Unnamed Activity",
+          duration: parseInt(act.duration) || 1,
+          predecessors: act.predecessors || [],
+          successors: act.successors || [],
+          status: act.status || "Not Started",
+          percentComplete: act.percentComplete || 0,
+          startDate: act.startDate || act.start_date || new Date().toISOString().split('T')[0],
+          finishDate: act.finishDate || act.finish_date || new Date(Date.now() + (act.duration || 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          wbs: act.wbs || "",
+          resources: act.resources || [],
+          earlyStart: act.earlyStart || 0,
+          earlyFinish: act.earlyFinish || 0,
+          lateStart: act.lateStart || 0,
+          lateFinish: act.lateFinish || 0,
+          totalFloat: act.totalFloat || 0,
+          freeFloat: act.freeFloat || 0,
+          isCritical: act.isCritical || false
+        }));
         
-        console.log("Setting generatedActivities to:", formattedActivities);
-        setGeneratedActivities(formattedActivities);
+        // Set the new activities array
+        setGeneratedActivities(newActivities);
         
-        // Force React to update by also updating a separate state
-        setForceUpdate(prev => prev + 1);
-        
-        // Show success with recommendations if available
-        const message = data.summary || `AI created ${formattedActivities.length} activities`;
+        // Show success message
         toast({
-          title: "Schedule Generated",
-          description: message,
+          title: "Schedule Generated Successfully!",
+          description: `AI created ${newActivities.length} activities for your project`,
         });
-        
-        // Verify the state was updated
-        setTimeout(() => {
-          console.log("After setState - checking state");
-          setGeneratedActivities(prevActivities => {
-            console.log("Current generatedActivities in state:", prevActivities);
-            return prevActivities;
-          });
-        }, 100);
       } else {
-        console.log("No activities found in response");
         toast({
           title: "No Activities Generated",
           description: "Try providing more details about your project",
@@ -516,16 +505,8 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                         )}
                       </Button>
 
-                      {/* Debug: Always show this section to see state */}
-                      <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded space-y-1">
-                        <div>Debug: Activities in state: {generatedActivities.length} | Force update: {forceUpdate}</div>
-                        {generatedActivities.length > 0 && (
-                          <div>First activity: {generatedActivities[0]?.activityName || "No name"}</div>
-                        )}
-                      </div>
-
                       {generatedActivities.length > 0 && (
-                        <div className="space-y-4" key={`generated-${generatedActivities.length}-${forceUpdate}`}>
+                        <div className="space-y-4">
                           <Alert className="bg-green-50 border-green-200">
                             <AlertDescription className="text-green-800">
                               ✓ Successfully generated {generatedActivities.length} activities. Review and save to project.
@@ -534,7 +515,6 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                           
                           <div className="max-h-[300px] overflow-y-auto border rounded-lg">
                             <ScheduleEditor
-                              key={`editor-${generatedActivities.length}-${forceUpdate}`}
                               activities={generatedActivities}
                               onActivitiesChange={setGeneratedActivities}
                               projectStartDate={new Date().toISOString().split('T')[0]}
