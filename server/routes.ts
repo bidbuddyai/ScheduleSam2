@@ -877,15 +877,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
-          // Add new activities with proper projectId
+          // Add new activities with proper projectId and field mapping
           for (const activity of result.activities) {
             // Check if using database storage (has different signature)
             if ('db' in storage) {
-              // Database storage expects activity with projectId included
-              await storage.createActivity({
-                ...activity,
-                projectId: projectId
-              });
+              // Map AI activity fields to database schema and ensure projectId is set
+              const dbActivity = {
+                projectId: projectId, // Explicitly set projectId first
+                activityId: activity.activityId || crypto.randomUUID(),
+                name: activity.activityName || activity.name || "Unnamed Activity",
+                type: "Task",
+                originalDuration: activity.duration || 1,
+                remainingDuration: activity.duration || 1,
+                durationUnit: "days",
+                earlyStart: activity.startDate || new Date().toISOString().split('T')[0],
+                earlyFinish: activity.finishDate || new Date(Date.now() + (activity.duration || 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                actualStart: null,
+                actualFinish: null,
+                constraint: "ASAP",
+                constraintDate: null,
+                percentComplete: 0,
+                status: "NotStarted",
+                priority: 500,
+                totalFloat: activity.totalFloat || 0,
+                freeFloat: activity.freeFloat || 0,
+                isCritical: activity.isCritical || false,
+                responsibility: null,
+                trade: null
+              };
+              
+              await storage.createActivity(dbActivity);
             } else {
               // Memory storage expects projectId as separate parameter
               await storage.createActivity(projectId, activity);
