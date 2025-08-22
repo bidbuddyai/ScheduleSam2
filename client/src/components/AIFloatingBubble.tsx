@@ -60,6 +60,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
   const generateScheduleMutation = useMutation({
     mutationFn: async () => {
       try {
+        console.log("Starting schedule generation...");
         const response = await apiRequest("POST", "/api/schedule/ai/generate", {
           type: "create",
           projectDescription,
@@ -67,6 +68,8 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
           model: selectedModel,
           uploadedFiles
         });
+        
+        console.log("Response status:", response.status);
         
         // Check if response is ok before parsing JSON
         if (!response.ok) {
@@ -76,6 +79,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
         }
         
         const data = await response.json();
+        console.log("Received data:", data);
         return data;
       } catch (error) {
         console.error("Generation error:", error);
@@ -84,12 +88,29 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
     },
     onSuccess: (data) => {
       console.log("Schedule generated:", data);
-      if (data.activities && data.activities.length > 0) {
-        setGeneratedActivities(data.activities);
+      if (data && data.activities && data.activities.length > 0) {
+        // Ensure activities are properly formatted
+        const formattedActivities = data.activities.map((act: any) => ({
+          ...act,
+          id: act.id || crypto.randomUUID(),
+          activityId: act.activityId || act.id,
+          activityName: act.activityName || act.name || "Unnamed Activity",
+          duration: act.duration || 1,
+          startDate: act.startDate || new Date().toISOString().split('T')[0],
+          finishDate: act.finishDate || new Date(Date.now() + (act.duration || 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        }));
+        
+        setGeneratedActivities(formattedActivities);
+        
+        // Show success with recommendations if available
+        const message = data.summary || `AI created ${formattedActivities.length} activities`;
         toast({
           title: "Schedule Generated",
-          description: `AI created ${data.activities.length} activities`,
+          description: message,
         });
+        
+        // Log for debugging
+        console.log("Activities set:", formattedActivities);
       } else {
         toast({
           title: "No Activities Generated",
