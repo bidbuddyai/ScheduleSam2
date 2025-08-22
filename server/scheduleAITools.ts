@@ -43,11 +43,18 @@ Return schedules as JSON with this structure:
   "activities": [
     {
       "activityId": "A001",
-      "activityName": "Activity Name",
-      "duration": 5,  // IMPORTANT: Duration in DAYS as a number (e.g., 5 means 5 days, 10 means 10 days)
+      "name": "Activity Name",
+      "originalDuration": 5,  // IMPORTANT: Duration in DAYS as a number (e.g., 5 means 5 days, 10 means 10 days)
+      "remainingDuration": 5,  // Same as originalDuration for new activities
       "predecessors": ["A000"],  // Array of activity IDs this depends on
-      "status": "Not Started",
+      "status": "NotStarted",  // EXACT enum: "NotStarted", "InProgress", or "Completed"
       "percentComplete": 0,
+      "earlyStart": "2025-01-15",  // Date string in YYYY-MM-DD format
+      "earlyFinish": "2025-01-20",  // Date string in YYYY-MM-DD format
+      "type": "Task",  // EXACT enum: "Task", "StartMilestone", "FinishMilestone", "LOE", "Hammock", "WBSSummary"
+      "totalFloat": 0,  // Number of float days
+      "freeFloat": 0,   // Number of free float days
+      "isCritical": true,  // Boolean: true/false
       "wbs": "1.1.1",
       "resources": ["Resource1", "Resource2"]
     }

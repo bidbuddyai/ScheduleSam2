@@ -881,26 +881,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const activity of result.activities) {
             // Check if using database storage (has different signature)
             if ('db' in storage) {
-              // Map AI activity fields to database schema and ensure projectId is set
+              // AI now generates correct format, just add projectId and any missing fields
               const dbActivity = {
-                projectId: projectId, // Explicitly set projectId first
+                ...activity,
+                projectId: projectId, // Ensure projectId is set
                 activityId: activity.activityId || `ACT-${crypto.randomUUID().slice(0, 8)}`,
-                name: activity.activityName || activity.name || "Unnamed Activity",
-                type: "Task" as const,
-                originalDuration: Number(activity.duration) || 1,
-                remainingDuration: Number(activity.duration) || 1,
+                name: activity.name || "Unnamed Activity",
+                type: activity.type || "Task",
                 durationUnit: "days",
-                earlyStart: String(activity.startDate || new Date().toISOString().split('T')[0]),
-                earlyFinish: String(activity.finishDate || new Date(Date.now() + (Number(activity.duration) || 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
                 actualStart: null,
                 actualFinish: null,
                 constraintType: null,
                 constraintDate: null,
-                percentComplete: 0,
-                status: "NotStarted" as const,
-                totalFloat: Number(activity.totalFloat) || 0,
-                freeFloat: Number(activity.freeFloat) || 0,
-                isCritical: Boolean(activity.isCritical) || false,
+                percentComplete: activity.percentComplete || 0,
+                status: activity.status || "NotStarted",
                 responsibility: null,
                 trade: null
               };
