@@ -129,7 +129,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
         const newActivities = data.activities.map((act: any, index: number) => ({
           id: act.id || crypto.randomUUID(),
           activityId: act.activityId || `ACT-${index + 1}`,
-          activityName: act.activityName || act.name || "Unnamed Activity",
+          activityName: act.name || act.activityName || "Unnamed Activity",
           duration: parseInt(act.originalDuration || act.duration) || 1,
           predecessors: act.predecessors || [],
           successors: act.successors || [],

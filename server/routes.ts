@@ -174,19 +174,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects/:projectId/activities", async (req, res) => {
     try {
-      console.log('ACTIVITY CREATE REQUEST BODY:', JSON.stringify(req.body, null, 2));
-      
       // Transform AI format to database format BEFORE validation
       const transformedActivity = {
         projectId: req.params.projectId,
         activityId: req.body.activityId || `ACT-${crypto.randomUUID().slice(0, 8)}`,
-        name: req.body.name || req.body.activityName || "Unnamed Activity",
+        name: req.body.activityName || req.body.name || "Unnamed Activity",
         type: "Task",
         originalDuration: Number(req.body.originalDuration || req.body.duration) || 1,
         remainingDuration: Number(req.body.remainingDuration || req.body.duration) || 1,
         durationUnit: "days",
-        earlyStart: String(req.body.earlyStart || req.body.startDate || new Date().toISOString().split('T')[0]),
-        earlyFinish: String(req.body.earlyFinish || req.body.finishDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+        earlyStart: String(req.body.startDate || new Date().toISOString().split('T')[0]),
+        earlyFinish: String(req.body.finishDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
         actualStart: null,
         actualFinish: null,
         constraintType: null,
@@ -201,8 +199,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         responsibility: null,
         trade: null
       };
-      
-      console.log('TRANSFORMED ACTIVITY:', JSON.stringify(transformedActivity, null, 2));
       
       const activityData = insertActivitySchema.parse(transformedActivity);
       const activity = await storage.createActivity(activityData);
