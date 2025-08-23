@@ -268,38 +268,8 @@ Provide:
     try {
       result = JSON.parse(content);
       
-      // Transform AI output to database format
-      if (result.activities && Array.isArray(result.activities)) {
-        result.activities = result.activities.map((activity: any) => ({
-          // Map field names and fix data types
-          activityId: activity.activityId || `ACT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-          name: activity.name || activity.activityName || "Unnamed Activity",
-          type: "Task",
-          originalDuration: Number(activity.originalDuration || activity.duration) || 1,
-          remainingDuration: Number(activity.remainingDuration || activity.duration) || 1,
-          durationUnit: "days",
-          earlyStart: String(activity.earlyStart || activity.startDate || new Date().toISOString().split('T')[0]),
-          earlyFinish: String(activity.earlyFinish || activity.finishDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
-          actualStart: null,
-          actualFinish: null,
-          constraintType: null,
-          constraintDate: null,
-          percentComplete: Number(activity.percentComplete) || 0,
-          status: activity.status === "Not Started" ? "NotStarted" : 
-                  activity.status === "In Progress" ? "InProgress" : 
-                  activity.status === "Completed" ? "Completed" : "NotStarted",
-          totalFloat: Number(activity.totalFloat) || 0,
-          freeFloat: Number(activity.freeFloat) || 0,
-          isCritical: Boolean(activity.isCritical) || false,
-          responsibility: null,
-          trade: null,
-          // Keep other fields as-is
-          predecessors: activity.predecessors || [],
-          successors: activity.successors || [],
-          wbs: activity.wbs || "1.0",
-          resources: activity.resources || []
-        }));
-      }
+      // Keep raw AI activities with proper names
+      console.log('Raw AI activities sample:', JSON.stringify(result.activities?.slice(0, 2), null, 2));
     } catch (parseError) {
       console.error('Failed to parse AI response:', content.substring(0, 200));
       // Return a default structure if parsing fails
@@ -313,11 +283,12 @@ Provide:
     // Use the already-transformed activities from above
     const activities = result.activities || [];
     
-    // Add missing fields for frontend compatibility
+    // Add missing fields for frontend compatibility and preserve AI names
     activities.forEach((activity: any, index: number) => {
       // Add frontend fields if missing
       if (!activity.id) activity.id = crypto.randomUUID();
-      if (!activity.activityName) activity.activityName = activity.name;
+      // Preserve the AI-generated name as activityName for frontend
+      activity.activityName = activity.name || "Unnamed Activity";
       if (!activity.duration) activity.duration = activity.originalDuration;
       if (!activity.startDate) activity.startDate = activity.earlyStart;
       if (!activity.finishDate) activity.finishDate = activity.earlyFinish;
