@@ -310,105 +310,25 @@ Provide:
       };
     }
     
-    // Process activities to ensure they have all required fields
-    const activities = (result.activities || []).map((act: any, index: number) => {
-      const duration = parseInt(act.duration) || 5; // Default 5 days if not specified
-      const startDateStr = act.startDate || request.startDate || new Date().toISOString().split('T')[0];
-      const startDate = new Date(startDateStr);
-      const finishDate = new Date(startDate);
-      finishDate.setDate(finishDate.getDate() + duration);
-      
-      return {
-        id: crypto.randomUUID(),
-        activityId: act.activityId || `A${(index + 1).toString().padStart(3, '0')}`,
-        activityName: act.activityName || 'Unnamed Activity',
-        duration: duration,
-        predecessors: Array.isArray(act.predecessors) ? act.predecessors : [],
-        successors: [],
-        status: act.status || 'Not Started',
-        percentComplete: act.percentComplete || 0,
-        startDate: startDateStr,
-        finishDate: finishDate.toISOString().split('T')[0],
-        wbs: act.wbs || '',
-        resources: act.resources || [],
-        earlyStart: 0,
-        earlyFinish: 0,
-        lateStart: 0,
-        lateFinish: 0,
-        totalFloat: 0,
-        freeFloat: 0,
-        isCritical: false
-      };
+    // Use the already-transformed activities from above
+    const activities = result.activities || [];
+    
+    // Add missing fields for frontend compatibility
+    activities.forEach((activity: any, index: number) => {
+      // Add frontend fields if missing
+      if (!activity.id) activity.id = crypto.randomUUID();
+      if (!activity.activityName) activity.activityName = activity.name;
+      if (!activity.duration) activity.duration = activity.originalDuration;
+      if (!activity.startDate) activity.startDate = activity.earlyStart;
+      if (!activity.finishDate) activity.finishDate = activity.earlyFinish;
     });
     
-    // Calculate dates and CPM network
-    // First pass: Calculate early dates (forward pass)
-    activities.forEach((activity: Activity) => {
-      if (activity.predecessors.length === 0) {
-        // No predecessors - starts at project start
-        activity.earlyStart = 0;
-        activity.earlyFinish = activity.duration;
-      } else {
-        // Has predecessors - find latest finish of all predecessors
-        let maxEarlyFinish = 0;
-        activity.predecessors.forEach(predId => {
-          const pred = activities.find((a: Activity) => a.activityId === predId);
-          if (pred) {
-            maxEarlyFinish = Math.max(maxEarlyFinish, pred.earlyFinish || 0);
-          }
-        });
-        activity.earlyStart = maxEarlyFinish;
-        activity.earlyFinish = activity.earlyStart + activity.duration;
-      }
-    });
-    
-    // Set successors and calculate late dates (backward pass)
-    const projectFinish = Math.max(...activities.map((a: Activity) => a.earlyFinish || 0));
-    
-    // Initialize late dates for activities with no successors
-    activities.forEach((activity: Activity) => {
-      // Build successor relationships
-      activity.predecessors.forEach(predId => {
-        const pred = activities.find((a: Activity) => a.activityId === predId);
-        if (pred && !pred.successors.includes(activity.activityId)) {
-          pred.successors.push(activity.activityId);
-        }
-      });
-    });
-    
-    // Calculate late dates
-    activities.forEach((activity: Activity) => {
-      if (activity.successors.length === 0) {
-        // No successors - can finish at project end
-        activity.lateFinish = projectFinish;
-        activity.lateStart = activity.lateFinish - activity.duration;
-      } else {
-        // Has successors - find earliest start of all successors
-        let minLateStart = projectFinish;
-        activity.successors.forEach(succId => {
-          const succ = activities.find((a: Activity) => a.activityId === succId);
-          if (succ) {
-            minLateStart = Math.min(minLateStart, succ.lateStart || projectFinish);
-          }
-        });
-        activity.lateFinish = minLateStart;
-        activity.lateStart = activity.lateFinish - activity.duration;
-      }
-      
-      // Calculate float
-      activity.totalFloat = (activity.lateStart || 0) - (activity.earlyStart || 0);
-      activity.freeFloat = activity.totalFloat; // Simplified
-    });
-    
-    // Mark critical path (activities with zero float)
-    activities.forEach((activity: Activity) => {
-      activity.isCritical = activity.totalFloat === 0;
-    });
+    console.log(`AI generated activities count: ${activities.length}`);
     
     // Build critical path array
     const criticalPath = activities
-      .filter((a: Activity) => a.isCritical)
-      .map((a: Activity) => a.activityId);
+      .filter((a: any) => a.isCritical)
+      .map((a: any) => a.activityId);
     
     return {
       activities,
