@@ -192,9 +192,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         constraintType: null,
         constraintDate: null,
         percentComplete: Number(req.body.percentComplete) || 0,
-        status: req.body.status === "Not Started" ? "NotStarted" : 
-                req.body.status === "In Progress" ? "InProgress" : 
-                req.body.status === "Completed" ? "Completed" : "NotStarted",
+        status: req.body.status === "Not Started" ? "NotStarted" as const : 
+                req.body.status === "In Progress" ? "InProgress" as const : 
+                req.body.status === "Completed" ? "Completed" as const : "NotStarted" as const,
         totalFloat: Number(req.body.totalFloat) || 0,
         freeFloat: Number(req.body.freeFloat) || 0,
         isCritical: Boolean(req.body.isCritical) || false,
@@ -881,12 +881,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             // Create a default project if none exists
             const newProject = await storage.createProject({
-              projectName: req.body.projectDescription || "AI Generated Schedule",
+              name: req.body.projectDescription || "AI Generated Schedule",
               description: req.body.userRequest || "Generated with AI",
-              startDate: req.body.startDate || new Date().toISOString().split('T')[0],
-              endDate: req.body.endDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              status: "Planning",
-              projectManager: "AI Assistant"
+              contractStartDate: req.body.startDate || new Date().toISOString().split('T')[0],
+              contractFinishDate: req.body.endDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
             });
             projectId = newProject.id;
           }
@@ -933,12 +931,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           console.log(`Successfully saved ${result.activities.length} activities to database`);
-          result.saved = true;
-          result.projectId = projectId;
-        } catch (dbError) {
+          (result as any).saved = true;
+          (result as any).projectId = projectId;
+        } catch (dbError: any) {
           console.error('Database save failed but returning AI result anyway:', dbError);
-          result.saved = false;
-          result.saveError = dbError.message;
+          (result as any).saved = false;
+          (result as any).saveError = dbError.message;
         }
       }
       
