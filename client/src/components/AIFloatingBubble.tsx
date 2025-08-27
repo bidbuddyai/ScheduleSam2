@@ -206,19 +206,59 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
   // Save activities mutation
   const saveActivitiesMutation = useMutation({
     mutationFn: async () => {
-      const promises = generatedActivities.map(activity =>
-        apiRequest("POST", `/api/projects/${projectId}/activities`, activity)
-      );
-      return Promise.all(promises);
+      const results = [];
+      const errors = [];
+      
+      // Save activities one by one to handle individual errors
+      for (const activity of generatedActivities) {
+        try {
+          const response = await apiRequest("POST", `/api/projects/${projectId}/activities`, activity);
+          results.push({ success: true, activityId: activity.activityId });
+        } catch (error: any) {
+          console.error(`Failed to save activity ${activity.activityId}:`, error);
+          errors.push({ 
+            activityId: activity.activityId, 
+            name: activity.activityName,
+            error: error.message 
+          });
+        }
+      }
+      
+      if (errors.length > 0) {
+        console.error("Failed to save activities:", errors);
+        // Still return results, some may have succeeded
+        return { results, errors };
+      }
+      
+      return { results, errors: [] };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "activities"] });
-      toast({
-        title: "Activities Saved",
-        description: `${generatedActivities.length} activities added to the project`,
-      });
-      setGeneratedActivities([]);
-      setProjectDescription("");
+      
+      if (data.errors.length > 0) {
+        // Some activities failed
+        const savedCount = data.results.length;
+        const failedCount = data.errors.length;
+        
+        toast({
+          title: "Partial Save",
+          description: `${savedCount} activities saved, ${failedCount} failed. Check for duplicate IDs.`,
+          variant: "destructive",
+        });
+        
+        // Keep the failed activities for retry
+        const failedActivityIds = new Set(data.errors.map(e => e.activityId));
+        const remainingActivities = generatedActivities.filter(a => failedActivityIds.has(a.activityId));
+        setGeneratedActivities(remainingActivities);
+      } else {
+        // All saved successfully
+        toast({
+          title: "Activities Saved",
+          description: `${data.results.length} activities added to the project`,
+        });
+        setGeneratedActivities([]);
+        setProjectDescription("");
+      }
     },
     onError: (error) => {
       toast({

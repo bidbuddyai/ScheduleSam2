@@ -203,12 +203,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const activityData = insertActivitySchema.parse(transformedActivity);
       const activity = await storage.createActivity(activityData);
       res.json(activity);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating activity:", error);
+      console.error("Activity data that failed:", transformedActivity);
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid activity data", details: error.errors });
       } else {
-        res.status(500).json({ error: "Failed to create activity" });
+        // Include more detail in the error response
+        const errorMessage = error?.message || "Failed to create activity";
+        const errorDetail = error?.detail || "";
+        res.status(500).json({ 
+          error: errorMessage,
+          detail: errorDetail,
+          activityId: req.body.activityId 
+        });
       }
     }
   });
