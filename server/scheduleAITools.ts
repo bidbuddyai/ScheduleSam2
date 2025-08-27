@@ -267,9 +267,6 @@ Provide:
     let result;
     try {
       result = JSON.parse(content);
-      
-      // Keep raw AI activities with proper names
-      console.log('Raw AI activities sample:', JSON.stringify(result.activities?.slice(0, 2), null, 2));
     } catch (parseError) {
       console.error('Failed to parse AI response:', content.substring(0, 200));
       // Return a default structure if parsing fails
@@ -280,18 +277,58 @@ Provide:
       };
     }
     
-    // Use the already-transformed activities from above
-    const activities = result.activities || [];
-    
-    // Add missing fields for frontend compatibility and preserve AI names
-    activities.forEach((activity: any, index: number) => {
-      // Add frontend fields if missing
-      if (!activity.id) activity.id = crypto.randomUUID();
-      // Preserve the AI-generated name as activityName for frontend
-      activity.activityName = activity.name || "Unnamed Activity";
-      if (!activity.duration) activity.duration = activity.originalDuration;
-      if (!activity.startDate) activity.startDate = activity.earlyStart;
-      if (!activity.finishDate) activity.finishDate = activity.earlyFinish;
+    // Transform AI activities to the format expected by frontend
+    const activities = (result.activities || []).map((activity: any, index: number) => {
+      // Calculate dates properly
+      const duration = Number(activity.originalDuration || activity.duration) || 5;
+      const startDateStr = activity.earlyStart || activity.startDate || request.startDate || new Date().toISOString().split('T')[0];
+      const startDate = new Date(startDateStr);
+      const finishDate = new Date(startDate);
+      finishDate.setDate(finishDate.getDate() + duration);
+      
+      return {
+        // Essential fields
+        id: crypto.randomUUID(),
+        activityId: activity.activityId || `A${(index + 1).toString().padStart(3, '0')}`,
+        activityName: activity.name || activity.activityName || "Unnamed Activity",  // Preserve the AI name
+        name: activity.name || activity.activityName || "Unnamed Activity",  // Also keep as name for database
+        
+        // Duration fields
+        duration: duration,
+        originalDuration: duration,
+        remainingDuration: duration,
+        durationUnit: "days",
+        
+        // Date fields
+        startDate: startDateStr,
+        finishDate: finishDate.toISOString().split('T')[0],
+        earlyStart: startDateStr,
+        earlyFinish: finishDate.toISOString().split('T')[0],
+        
+        // Relationship fields
+        predecessors: Array.isArray(activity.predecessors) ? activity.predecessors : [],
+        successors: Array.isArray(activity.successors) ? activity.successors : [],
+        
+        // Status fields
+        status: activity.status || 'NotStarted',
+        percentComplete: Number(activity.percentComplete) || 0,
+        
+        // CPM fields
+        totalFloat: Number(activity.totalFloat) || 0,
+        freeFloat: Number(activity.freeFloat) || 0,
+        isCritical: Boolean(activity.isCritical) || false,
+        
+        // Other fields
+        wbs: activity.wbs || `1.${index + 1}`,
+        resources: activity.resources || [],
+        type: "Task",
+        actualStart: null,
+        actualFinish: null,
+        constraintType: null,
+        constraintDate: null,
+        responsibility: null,
+        trade: null
+      };
     });
     
     console.log(`AI generated activities count: ${activities.length}`);
