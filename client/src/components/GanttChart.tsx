@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import type { Activity, Relationship, Wbs } from "@shared/schema";
-import { BarChart3, Calendar, AlertCircle, ChevronRight } from "lucide-react";
-import { useState, useMemo } from "react";
+import { BarChart3, Calendar, AlertCircle, Link2, ArrowRight } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { format, parseISO, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from "date-fns";
 
 interface GanttChartProps {
@@ -21,8 +22,10 @@ export default function GanttChart({
 }: GanttChartProps) {
   const [hoveredActivity, setHoveredActivity] = useState<string | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
-  const dayWidth = 30;
-  const rowHeight = 40;
+  const [showRelationships, setShowRelationships] = useState(true);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const dayWidth = 32;
+  const rowHeight = 42;
   
   // Calculate date range
   const { projectStart, projectEnd, totalDays } = useMemo(() => {
@@ -115,12 +118,23 @@ export default function GanttChart({
     };
   }, [projectStart, projectEnd, dayWidth]);
   
-  // Sort activities by start date
-  const sortedActivities = useMemo(() => {
-    return [...activities].sort((a, b) => {
+  // Sort activities by start date and create index map
+  const { sortedActivities, activityIndexMap } = useMemo(() => {
+    const sorted = [...activities].sort((a, b) => {
+      // Critical activities first
+      if (a.isCritical !== b.isCritical) {
+        return a.isCritical ? -1 : 1;
+      }
       if (!a.earlyStart || !b.earlyStart) return 0;
       return parseISO(a.earlyStart).getTime() - parseISO(b.earlyStart).getTime();
     });
+    
+    const indexMap = new Map<string, number>();
+    sorted.forEach((activity, index) => {
+      indexMap.set(activity.id, index);
+    });
+    
+    return { sortedActivities: sorted, activityIndexMap: indexMap };
   }, [activities]);
   
   // Calculate activity positions
@@ -136,7 +150,7 @@ export default function GanttChart({
     
     return {
       left: leftOffset * dayWidth,
-      width: Math.max(duration * dayWidth - 2, 10),
+      width: Math.max(duration * dayWidth - 2, 20),
       duration
     };
   };
@@ -145,7 +159,9 @@ export default function GanttChart({
   const getActivityStyle = (activity: Activity) => {
     let backgroundColor = '#9ca3af'; // Default gray
     
-    if (activity.isCritical) {
+    if (selectedActivity === activity.id) {
+      backgroundColor = '#f59e0b'; // Amber when selected
+    } else if (activity.isCritical) {
       backgroundColor = '#dc2626'; // Red
     } else if (activity.status === 'Completed') {
       backgroundColor = '#16a34a'; // Green
@@ -153,24 +169,118 @@ export default function GanttChart({
       backgroundColor = '#2563eb'; // Blue
     }
     
-    if (selectedActivity === activity.id) {
-      backgroundColor = '#f59e0b'; // Amber when selected
-    }
-    
     return { backgroundColor };
   };
   
-  // Build activity map for relationships
-  const activityMap = useMemo(() => {
-    const map = new Map<string, { activity: Activity; index: number; position: any }>();
-    sortedActivities.forEach((activity, index) => {
-      const position = getActivityPosition(activity);
-      if (position) {
-        map.set(activity.id, { activity, index, position });
+  // Get predecessors and successors for an activity
+  const getActivityRelationships = (activityId: string) => {
+    const predecessors = relationships
+      .filter(r => r.successorId === activityId)
+      .map(r => {
+        const pred = activities.find(a => a.id === r.predecessorId);
+        return pred ? { ...r, activity: pred } : null;
+      })
+      .filter(Boolean);
+    
+    const successors = relationships
+      .filter(r => r.predecessorId === activityId)
+      .map(r => {
+        const succ = activities.find(a => a.id === r.successorId);
+        return succ ? { ...r, activity: succ } : null;
+      })
+      .filter(Boolean);
+    
+    return { predecessors, successors };
+  };
+  
+  // Render relationship lines
+  const renderRelationshipLines = () => {
+    if (!showRelationships) return null;
+    
+    return relationships.map(rel => {
+      const predIndex = activityIndexMap.get(rel.predecessorId);
+      const succIndex = activityIndexMap.get(rel.successorId);
+      
+      if (predIndex === undefined || succIndex === undefined) return null;
+      
+      const predecessor = sortedActivities[predIndex];
+      const successor = sortedActivities[succIndex];
+      
+      const predPos = getActivityPosition(predecessor);
+      const succPos = getActivityPosition(successor);
+      
+      if (!predPos || !succPos) return null;
+      
+      // Calculate connection points
+      let x1 = predPos.left + predPos.width;
+      let y1 = predIndex * rowHeight + rowHeight / 2;
+      let x2 = succPos.left;
+      let y2 = succIndex * rowHeight + rowHeight / 2;
+      
+      // Adjust for relationship type
+      if (rel.type === 'SS') {
+        x1 = predPos.left;
+        x2 = succPos.left;
+      } else if (rel.type === 'FF') {
+        x1 = predPos.left + predPos.width;
+        x2 = succPos.left + succPos.width;
+      } else if (rel.type === 'SF') {
+        x1 = predPos.left;
+        x2 = succPos.left + succPos.width;
       }
+      
+      // Add lag adjustment
+      if (rel.lag) {
+        x2 += rel.lag * dayWidth;
+      }
+      
+      // Create path - use straight lines with right angles for clarity
+      let path = '';
+      const isCritical = predecessor.isCritical && successor.isCritical;
+      const color = isCritical ? '#dc2626' : '#6b7280';
+      
+      if (Math.abs(y2 - y1) < 5) {
+        // Same row - straight line
+        path = `M ${x1} ${y1} L ${x2} ${y2}`;
+      } else {
+        // Different rows - use right angles
+        const midX = x1 + 15;
+        path = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
+      }
+      
+      return (
+        <g key={rel.id}>
+          {/* Main line */}
+          <path
+            d={path}
+            stroke={color}
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray={rel.type !== 'FS' ? '4,4' : undefined}
+            opacity={hoveredActivity && hoveredActivity !== rel.predecessorId && hoveredActivity !== rel.successorId ? 0.3 : 1}
+          />
+          {/* Arrow head */}
+          <path
+            d={`M ${x2} ${y2} L ${x2-8} ${y2-4} L ${x2-8} ${y2+4} Z`}
+            fill={color}
+            opacity={hoveredActivity && hoveredActivity !== rel.predecessorId && hoveredActivity !== rel.successorId ? 0.3 : 1}
+          />
+          {/* Lag label */}
+          {rel.lag !== 0 && (
+            <text
+              x={x1 + 20}
+              y={y1 - 5}
+              fontSize="11"
+              fill="#4b5563"
+              fontWeight="500"
+            >
+              {rel.lag > 0 ? `+${rel.lag}d` : `${rel.lag}d`}
+            </text>
+          )}
+        </g>
+      );
     });
-    return map;
-  }, [sortedActivities, projectStart, dayWidth]);
+  };
   
   return (
     <TooltipProvider>
@@ -181,20 +291,31 @@ export default function GanttChart({
               <BarChart3 className="w-5 h-5" />
               <span>Gantt Chart</span>
             </div>
-            <div className="flex items-center gap-4 text-sm font-normal">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-red-600 rounded" />
-                <span>Critical</span>
+            <div className="flex items-center gap-4">
+              <Button
+                variant={showRelationships ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowRelationships(!showRelationships)}
+                className="text-xs"
+              >
+                <Link2 className="w-4 h-4 mr-1" />
+                {showRelationships ? 'Hide' : 'Show'} Links
+              </Button>
+              <div className="flex items-center gap-3 text-sm font-normal">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-red-600 rounded" />
+                  <span>Critical</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-blue-600 rounded" />
+                  <span>In Progress</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-green-600 rounded" />
+                  <span>Complete</span>
+                </div>
+                <span className="text-gray-500 ml-2">{activities.length} activities</span>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-blue-600 rounded" />
-                <span>In Progress</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-green-600 rounded" />
-                <span>Completed</span>
-              </div>
-              <span className="text-gray-500 ml-2">{activities.length} activities</span>
             </div>
           </CardTitle>
         </CardHeader>
@@ -208,65 +329,103 @@ export default function GanttChart({
           ) : (
             <div className="flex border-t">
               {/* Activity List */}
-              <div className="w-[400px] border-r bg-gray-50 flex-shrink-0">
+              <div className="w-[450px] border-r bg-gray-50 flex-shrink-0">
                 <div className="sticky top-0 bg-white border-b px-4 py-2 font-medium text-sm z-20">
                   <div className="flex justify-between">
                     <span>Activity</span>
-                    <span>Dates</span>
+                    <span>Links</span>
                   </div>
                 </div>
                 <div className="overflow-y-auto" style={{ maxHeight: '600px' }}>
-                  {sortedActivities.map((activity, index) => (
-                    <div
-                      key={activity.id}
-                      className={`px-4 py-2 border-b text-sm cursor-pointer transition-colors ${
-                        selectedActivity === activity.id ? 'bg-amber-50 border-amber-200' :
-                        hoveredActivity === activity.id ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'
-                      }`}
-                      style={{ minHeight: rowHeight }}
-                      onClick={() => {
-                        setSelectedActivity(activity.id);
-                        onActivitySelect(activity.id);
-                      }}
-                      onMouseEnter={() => setHoveredActivity(activity.id)}
-                      onMouseLeave={() => setHoveredActivity(null)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {activity.isCritical && (
-                              <AlertCircle className="w-3 h-3 text-red-600" />
-                            )}
-                            <span className="font-mono text-xs text-gray-500">
-                              {activity.activityId}
-                            </span>
-                            <span className="font-medium truncate">
-                              {activity.name}
-                            </span>
-                          </div>
-                          {activity.percentComplete > 0 && (
-                            <div className="mt-1 flex items-center gap-2">
-                              <div className="flex-1 h-1 bg-gray-200 rounded">
-                                <div 
-                                  className="h-1 bg-green-500 rounded"
-                                  style={{ width: `${activity.percentComplete}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-green-600">
-                                {activity.percentComplete}%
+                  {sortedActivities.map((activity, index) => {
+                    const { predecessors, successors } = getActivityRelationships(activity.id);
+                    
+                    return (
+                      <div
+                        key={activity.id}
+                        className={`px-4 py-2 border-b text-sm cursor-pointer transition-colors ${
+                          selectedActivity === activity.id ? 'bg-amber-50 border-amber-200' :
+                          hoveredActivity === activity.id ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'
+                        }`}
+                        style={{ minHeight: rowHeight }}
+                        onClick={() => {
+                          setSelectedActivity(activity.id);
+                          onActivitySelect(activity.id);
+                        }}
+                        onMouseEnter={() => setHoveredActivity(activity.id)}
+                        onMouseLeave={() => setHoveredActivity(null)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              {activity.isCritical && (
+                                <AlertCircle className="w-3 h-3 text-red-600 flex-shrink-0" />
+                              )}
+                              <span className="font-mono text-xs text-gray-500">
+                                {activity.activityId}
+                              </span>
+                              <span className="font-medium truncate max-w-[200px]" title={activity.name}>
+                                {activity.name}
                               </span>
                             </div>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500 ml-2 text-right">
-                          {activity.earlyStart && (
-                            <div>{format(parseISO(activity.earlyStart), 'MMM d')}</div>
-                          )}
-                          <div className="font-medium">{activity.originalDuration}d</div>
+                            <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                              <span>{activity.originalDuration}d</span>
+                              {activity.earlyStart && (
+                                <span>{format(parseISO(activity.earlyStart), 'MMM d')}</span>
+                              )}
+                              {activity.percentComplete > 0 && (
+                                <span className="text-green-600 font-medium">
+                                  {activity.percentComplete}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-2">
+                            {predecessors.length > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded">
+                                    <ArrowRight className="w-3 h-3 rotate-180" />
+                                    <span>{predecessors.length}</span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div className="text-xs">
+                                    <div className="font-medium mb-1">Predecessors:</div>
+                                    {predecessors.map((p: any) => (
+                                      <div key={p.id}>
+                                        {p.activity.activityId}: {p.activity.name} ({p.type}{p.lag ? ` ${p.lag}d` : ''})
+                                      </div>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            {successors.length > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded">
+                                    <ArrowRight className="w-3 h-3" />
+                                    <span>{successors.length}</span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div className="text-xs">
+                                    <div className="font-medium mb-1">Successors:</div>
+                                    {successors.map((s: any) => (
+                                      <div key={s.id}>
+                                        {s.activity.activityId}: {s.activity.name} ({s.type}{s.lag ? ` ${s.lag}d` : ''})
+                                      </div>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               
@@ -297,7 +456,7 @@ export default function GanttChart({
                         title={day.fullDate}
                       >
                         <div className="text-[10px] text-gray-400">{day.dayOfWeek[0]}</div>
-                        <div>{day.dayOfMonth}</div>
+                        <div className="font-medium">{day.dayOfMonth}</div>
                       </div>
                     ))}
                   </div>
@@ -324,45 +483,31 @@ export default function GanttChart({
                       />
                     ))}
                     
+                    {/* Grid lines for rows */}
+                    {sortedActivities.map((_, index) => (
+                      <div
+                        key={`gridline-${index}`}
+                        className="absolute w-full border-b border-gray-100"
+                        style={{ 
+                          top: (index + 1) * rowHeight - 1,
+                          left: 0,
+                          right: 0
+                        }}
+                      />
+                    ))}
+                    
                     {/* Relationship lines */}
                     <svg 
-                      className="absolute top-0 left-0 pointer-events-none"
+                      ref={svgRef}
+                      className="absolute top-0 left-0"
                       style={{ 
                         width: totalDays * dayWidth,
-                        height: sortedActivities.length * rowHeight
+                        height: sortedActivities.length * rowHeight,
+                        pointerEvents: 'none',
+                        zIndex: 5
                       }}
                     >
-                      {relationships.map(rel => {
-                        const pred = activityMap.get(rel.predecessorId);
-                        const succ = activityMap.get(rel.successorId);
-                        
-                        if (!pred || !succ) return null;
-                        
-                        const x1 = pred.position.left + pred.position.width;
-                        const y1 = pred.index * rowHeight + rowHeight / 2;
-                        const x2 = succ.position.left;
-                        const y2 = succ.index * rowHeight + rowHeight / 2;
-                        
-                        // Draw L-shaped line
-                        const path = y1 === y2 
-                          ? `M ${x1} ${y1} L ${x2} ${y2}` 
-                          : `M ${x1} ${y1} L ${x1 + 10} ${y1} L ${x1 + 10} ${y2} L ${x2} ${y2}`;
-                        
-                        return (
-                          <g key={rel.id}>
-                            <path
-                              d={path}
-                              stroke={pred.activity.isCritical && succ.activity.isCritical ? '#dc2626' : '#94a3b8'}
-                              strokeWidth="2"
-                              fill="none"
-                            />
-                            <polygon
-                              points={`${x2},${y2} ${x2-5},${y2-3} ${x2-5},${y2+3}`}
-                              fill={pred.activity.isCritical && succ.activity.isCritical ? '#dc2626' : '#94a3b8'}
-                            />
-                          </g>
-                        );
-                      })}
+                      {renderRelationshipLines()}
                     </svg>
                     
                     {/* Activity bars */}
@@ -370,22 +515,27 @@ export default function GanttChart({
                       const position = getActivityPosition(activity);
                       if (!position) return null;
                       
-                      const barTop = index * rowHeight + 8;
+                      const barTop = index * rowHeight + 9;
                       const barHeight = 24;
                       const style = getActivityStyle(activity);
+                      const isSelected = selectedActivity === activity.id;
+                      const isHovered = hoveredActivity === activity.id;
                       
                       return (
                         <Tooltip key={activity.id}>
                           <TooltipTrigger asChild>
                             <div
-                              className="absolute rounded cursor-pointer shadow hover:shadow-md transition-all"
+                              className={`absolute rounded cursor-pointer transition-all ${
+                                isSelected ? 'ring-2 ring-amber-500 ring-offset-1' : ''
+                              } ${isHovered ? 'shadow-lg' : 'shadow'}`}
                               style={{
                                 left: position.left,
                                 top: barTop,
-                                width: position.width,
+                                width: activity.originalDuration === 0 ? barHeight : position.width,
                                 height: barHeight,
                                 ...style,
-                                zIndex: hoveredActivity === activity.id ? 10 : 1
+                                zIndex: isSelected || isHovered ? 20 : 10,
+                                transform: activity.originalDuration === 0 ? 'rotate(45deg)' : undefined
                               }}
                               onClick={() => {
                                 setSelectedActivity(activity.id);
@@ -394,36 +544,40 @@ export default function GanttChart({
                               onMouseEnter={() => setHoveredActivity(activity.id)}
                               onMouseLeave={() => setHoveredActivity(null)}
                             >
-                              {activity.percentComplete > 0 && (
+                              {activity.percentComplete > 0 && activity.originalDuration !== 0 && (
                                 <div
-                                  className="absolute top-0 left-0 h-full bg-black bg-opacity-20 rounded"
+                                  className="absolute top-0 left-0 h-full bg-black bg-opacity-25 rounded"
                                   style={{ width: `${activity.percentComplete}%` }}
                                 />
                               )}
-                              {position.width > 50 && (
-                                <div className="px-1 text-white text-xs truncate leading-6">
+                              {position.width > 50 && activity.originalDuration !== 0 && (
+                                <div className="px-1 text-white text-xs font-medium truncate leading-6">
                                   {activity.activityId}
                                 </div>
                               )}
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent>
+                          <TooltipContent className="max-w-xs">
                             <div className="space-y-1 text-sm">
-                              <div className="font-medium">{activity.name}</div>
-                              <div>ID: {activity.activityId}</div>
-                              <div>Duration: {activity.originalDuration} days</div>
-                              <div>
-                                Start: {activity.earlyStart && format(parseISO(activity.earlyStart), 'MMM d, yyyy')}
+                              <div className="font-bold">{activity.name}</div>
+                              <div className="text-xs space-y-0.5">
+                                <div>ID: {activity.activityId} | Duration: {activity.originalDuration}d</div>
+                                <div>
+                                  Start: {activity.earlyStart && format(parseISO(activity.earlyStart), 'MMM d, yyyy')}
+                                </div>
+                                <div>
+                                  Finish: {activity.earlyFinish && format(parseISO(activity.earlyFinish), 'MMM d, yyyy')}
+                                </div>
+                                {activity.totalFloat !== undefined && (
+                                  <div>Float: {activity.totalFloat}d</div>
+                                )}
+                                {activity.percentComplete > 0 && (
+                                  <div className="text-green-600">Progress: {activity.percentComplete}%</div>
+                                )}
+                                {activity.isCritical && (
+                                  <div className="text-red-600 font-medium">Critical Path Activity</div>
+                                )}
                               </div>
-                              <div>
-                                Finish: {activity.earlyFinish && format(parseISO(activity.earlyFinish), 'MMM d, yyyy')}
-                              </div>
-                              {activity.percentComplete > 0 && (
-                                <div className="text-green-600">Progress: {activity.percentComplete}%</div>
-                              )}
-                              {activity.isCritical && (
-                                <div className="text-red-600 font-medium">Critical Path</div>
-                              )}
                             </div>
                           </TooltipContent>
                         </Tooltip>
