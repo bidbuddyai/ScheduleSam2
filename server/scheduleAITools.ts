@@ -289,7 +289,7 @@ Provide:
       return {
         // Essential fields
         id: crypto.randomUUID(),
-        activityId: activity.activityId || `ACT-${Date.now()}-${index}`,  // Unique timestamp-based ID
+        activityId: activity.activityId || `A${index.toString().padStart(3, '0')}`,  // A000, A001, etc - unique per project
         activityName: activity.name || activity.activityName || "Unnamed Activity",  // Preserve the AI name
         name: activity.name || activity.activityName || "Unnamed Activity",  // Also keep as name for database
         

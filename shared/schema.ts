@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, real, jsonb, pgEnum, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, real, jsonb, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -91,7 +91,7 @@ export const calendars = pgTable("calendars", {
 export const activities = pgTable("activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
-  activityId: text("activity_id").notNull().unique(), // User-defined ID
+  activityId: text("activity_id").notNull(), // User-defined ID (unique per project)
   name: text("name").notNull(),
   wbsId: varchar("wbs_id").references(() => wbs.id),
   type: activityTypeEnum("type").notNull().default("Task"),
@@ -149,7 +149,10 @@ export const activities = pgTable("activities", {
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
-});
+}, (table) => ({
+  // Composite unique constraint: activity_id must be unique within each project
+  projectActivityUnique: uniqueIndex("project_activity_unique").on(table.projectId, table.activityId)
+}));
 
 // Relationships (Dependencies)
 export const relationships = pgTable("relationships", {
