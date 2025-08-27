@@ -598,23 +598,34 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
                             </div>
                           </div>
 
-                          <Button
-                            onClick={() => saveActivitiesMutation.mutate()}
-                            disabled={saveActivitiesMutation.isPending}
-                            className="w-full"
-                          >
-                            {saveActivitiesMutation.isPending ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Saving...
-                              </>
-                            ) : (
-                              <>
-                                <Download className="h-4 w-4 mr-2" />
-                                Save Activities to Project
-                              </>
-                            )}
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => saveActivitiesMutation.mutate()}
+                              disabled={saveActivitiesMutation.isPending}
+                              className="flex-1"
+                            >
+                              {saveActivitiesMutation.isPending ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Save Activities to Project
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setGeneratedActivities([]);
+                                toast({ title: "Cleared", description: "Generated activities cleared" });
+                              }}
+                            >
+                              Clear
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
