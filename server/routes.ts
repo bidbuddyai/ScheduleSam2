@@ -899,8 +899,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Add new activities with proper projectId and field mapping
+          const activityIdMap = new Map<string, string>(); // Map AI activityId to database id
+          
           for (const activity of result.activities) {
             // Check if using database storage (has different signature)
+            let createdActivity: any;
             if ('db' in storage) {
               // AI now generates correct format, just add projectId and any missing fields
               const dbActivity = {
@@ -920,13 +923,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 trade: null
               };
               
-              await storage.createActivity(dbActivity);
+              createdActivity = await storage.createActivity(dbActivity);
             } else {
               // Memory storage expects projectId as separate parameter
-              await storage.createActivity(projectId, activity);
+              createdActivity = await storage.createActivity(projectId, activity);
+            }
+            
+            // Store the mapping of activityId to database id
+            if (createdActivity && createdActivity.id) {
+              activityIdMap.set(activity.activityId, createdActivity.id);
             }
           }
-          console.log(`Successfully saved ${result.activities.length} activities to database`);
+          
+          // Clear existing relationships for this project
+          const existingRelationships = await storage.getRelationshipsByProject(projectId);
+          for (const rel of existingRelationships) {
+            await storage.deleteRelationship(rel.id);
+          }
+          
+          // Create relationships from predecessors
+          let relationshipCount = 0;
+          for (const activity of result.activities) {
+            if (activity.predecessors && Array.isArray(activity.predecessors)) {
+              const successorId = activityIdMap.get(activity.activityId);
+              
+              for (const predActivityId of activity.predecessors) {
+                const predecessorId = activityIdMap.get(predActivityId);
+                
+                if (predecessorId && successorId) {
+                  try {
+                    await storage.createRelationship({
+                      projectId: projectId,
+                      predecessorId: predecessorId,
+                      successorId: successorId,
+                      type: "FS", // Default to Finish-to-Start
+                      lag: 0
+                    });
+                    relationshipCount++;
+                  } catch (relError) {
+                    console.error(`Failed to create relationship from ${predActivityId} to ${activity.activityId}:`, relError);
+                  }
+                }
+              }
+            }
+          }
+          
+          console.log(`Successfully saved ${result.activities.length} activities and ${relationshipCount} relationships to database`);
           (result as any).saved = true;
           (result as any).projectId = projectId;
         } catch (dbError: any) {
