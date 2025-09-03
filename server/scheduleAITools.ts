@@ -23,22 +23,22 @@ export interface ScheduleAIResponse {
 // AI prompt for schedule operations
 const SCHEDULE_SYSTEM_PROMPT = `You are a construction scheduling expert with deep knowledge of CPM (Critical Path Method) scheduling, similar to MS Project or Primavera P6.
 
-When creating or modifying schedules:
-1. Use realistic durations for construction activities
-2. Establish proper predecessor/successor relationships (FS, SS, FF, SF)
-3. Consider resource constraints and weather impacts
-4. Follow construction sequencing logic (e.g., foundations before framing)
-5. Include key milestones and deliverables
-6. Account for permits, inspections, and approvals
+**CRITICAL REQUIREMENTS:**
+1. EVERY activity (except the first) MUST have at least one predecessor
+2. Create a logical network of dependencies - activities should connect to form a complete schedule
+3. Use realistic construction sequencing (mobilization → site prep → foundations → structure → etc.)
+4. Consider parallel work paths where logical (e.g., MEP rough-ins can happen simultaneously)
+5. Include constraints where appropriate (SNET, FNLT, etc.)
 
-For demolition projects specifically:
-- Include hazmat surveys and abatement
-- Account for utility disconnections
-- Plan for debris removal and disposal
-- Consider environmental controls
-- Include site restoration
+**When creating schedules:**
+- Start with mobilization/site setup (no predecessors)
+- Each subsequent activity MUST reference valid predecessor activity IDs
+- Create multiple work paths that converge at milestones
+- Use realistic durations in DAYS
+- Consider weather, inspections, and approvals
+- Add proper lag times between activities where needed
 
-Return schedules as JSON with this structure:
+Return schedules as JSON with this EXACT structure:
 {
   "activities": [
     {
@@ -46,12 +46,14 @@ Return schedules as JSON with this structure:
       "name": "Activity Name",
       "originalDuration": 5,  // IMPORTANT: Duration in DAYS as a number (e.g., 5 means 5 days, 10 means 10 days)
       "remainingDuration": 5,  // Same as originalDuration for new activities
-      "predecessors": ["A000"],  // Array of activity IDs this depends on
+      "predecessors": ["A001", "A002"],  // REQUIRED: Array of predecessor activity IDs (empty only for first activity)
       "status": "NotStarted",  // EXACT enum: "NotStarted", "InProgress", or "Completed"
       "percentComplete": 0,
       "earlyStart": "2025-01-15",  // Date string in YYYY-MM-DD format
       "earlyFinish": "2025-01-20",  // Date string in YYYY-MM-DD format
       "type": "Task",  // EXACT enum: "Task", "StartMilestone", "FinishMilestone", "LOE", "Hammock", "WBSSummary"
+      "constraintType": "SNET",  // Optional: "SNET", "SNLT", "FNET", "FNLT", "MSO", "MFO"
+      "constraintDate": "2025-02-01",  // Required if constraintType is set
       "totalFloat": 0,  // Number of float days
       "freeFloat": 0,   // Number of free float days
       "isCritical": true,  // Boolean: true/false
@@ -102,14 +104,24 @@ Start Date: ${request.startDate || 'Today'}
 ${request.constraints ? `Constraints: ${request.constraints.join(', ')}` : ''}
 
 Generate a complete CPM schedule with:
-1. All major phases and activities (minimum 15-20 activities)
-2. Realistic durations in DAYS (e.g., mobilization: 3 days, demolition: 20 days, etc.)
-3. Proper predecessor relationships using activity IDs
-4. Resource assignments
-5. WBS structure
-6. Critical path identification
+1. Minimum 30-50 activities covering all project phases
+2. Realistic durations in DAYS (number only, e.g., 5 not "5 days")
+3. **MANDATORY**: Every activity (except first) must have predecessors array with valid activity IDs
+4. Create multiple parallel work paths (e.g., site work while ordering materials)
+5. Include key constraints:
+   - Start No Earlier Than (SNET) for permit-dependent work
+   - Finish No Later Than (FNLT) for milestone dates
+6. Resource assignments for each activity
+7. Hierarchical WBS structure (1.0, 1.1, 1.1.1, etc.)
+8. Calculate critical path based on longest path through network
 
-Ensure each activity has a duration > 0 days as a number`;
+**EXAMPLE PREDECESSOR STRUCTURE:**
+- A001: [] (first activity, no predecessors)
+- A002: ["A001"] (follows A001)
+- A003: ["A001"] (parallel to A002)
+- A004: ["A002", "A003"] (requires both A002 and A003 complete)
+
+Ensure EVERY activity connects to form a complete network schedule.`;
       break;
       
     case 'update':

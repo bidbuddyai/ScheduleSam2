@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { 
   Sparkles, 
   Bot, 
@@ -20,7 +22,13 @@ import {
   Calendar,
   GitBranch,
   Download,
-  MessageCircle
+  MessageCircle,
+  AlertCircle,
+  CheckCircle,
+  Link2,
+  Info,
+  User,
+  RefreshCw
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -32,6 +40,20 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface AIFloatingBubbleProps {
   projectId: string;
+}
+
+interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: Date;
+  activities?: Activity[];
+  metadata?: {
+    activitiesGenerated?: number;
+    relationshipsCreated?: number;
+    criticalPath?: string[];
+    contractDuration?: number;
+    extractedDates?: { start?: string; end?: string };
+  };
 }
 
 // Available models from Poe's OpenAI-compatible API
@@ -70,32 +92,39 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [activeTab, setActiveTab] = useState("generate");
+  const [activeTab, setActiveTab] = useState("chat");
   const [selectedModel, setSelectedModel] = useState("Claude-Sonnet-4");
   const [projectDescription, setProjectDescription] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [generatedActivities, setGeneratedActivities] = useState<Activity[]>([]);
-  const [assistantQuery, setAssistantQuery] = useState("");
-  const [conversation, setConversation] = useState<Array<{ role: string; content: string }>>([]);
+  const [chatInput, setChattInput] = useState("");
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom when new messages are added
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatHistory]);
 
   // Generate schedule mutation
   const generateScheduleMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (request: { message: string; isInitial?: boolean }) => {
       try {
         console.log("Starting schedule generation...");
         const response = await apiRequest("POST", "/api/schedule/ai/generate", {
-          type: "create",
-          projectDescription,
-          userRequest: projectDescription,
+          type: request.isInitial ? "create" : "update",
+          projectDescription: request.message,
+          userRequest: request.message,
           model: selectedModel,
-          uploadedFiles
+          uploadedFiles,
+          currentActivities: generatedActivities
         });
         
-        console.log("Response status:", response.status);
-        
-        // Check if response is ok before parsing JSON
         if (!response.ok) {
           const errorText = await response.text();
           console.error("Server error:", errorText);
@@ -110,280 +139,196 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
         throw error;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (data && data.activities && data.activities.length > 0) {
+        // Add assistant response to chat
+        const assistantMessage: ChatMessage = {
+          role: "assistant",
+          content: generateAssistantResponse(data, variables.isInitial),
+          timestamp: new Date(),
+          activities: data.activities,
+          metadata: {
+            activitiesGenerated: data.activities.length,
+            relationshipsCreated: countRelationships(data.activities),
+            criticalPath: data.criticalPath,
+            contractDuration: calculateDuration(data.activities),
+            extractedDates: extractDates(data.activities)
+          }
+        };
+        
+        setChatHistory(prev => [...prev, assistantMessage]);
+        setGeneratedActivities(data.activities);
+        
         if (data.saved) {
-          // Activities were automatically saved to database
           queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "activities"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "relationships"] });
           toast({
-            title: "Schedule Generated & Saved",
-            description: `Successfully generated and saved ${data.activities.length} activities to your project.`,
+            title: "Schedule Updated",
+            description: `${data.activities.length} activities with ${countRelationships(data.activities)} relationships saved to project.`,
           });
-          // Clear the generated activities since they're already saved
-          setGeneratedActivities([]);
-          setProjectDescription("");
-          return;
         }
-        
-        // Map AI activities to our format for manual saving
-        const newActivities = data.activities.map((act: any, index: number) => ({
-          id: act.id || crypto.randomUUID(),
-          activityId: act.activityId || `ACT-${index + 1}`,
-          activityName: act.activityName || act.name || "Unnamed Activity",
-          duration: parseInt(act.originalDuration || act.duration) || 1,
-          predecessors: act.predecessors || [],
-          successors: act.successors || [],
-          status: "Not Started" as const,
-          percentComplete: 0,
-          startDate: act.startDate || new Date().toISOString().split('T')[0],
-          finishDate: act.finishDate || new Date(Date.now() + (act.duration || 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          wbs: act.wbs || "",
-          resources: act.resources || [],
-          earlyStart: act.earlyStart || 0,
-          earlyFinish: act.earlyFinish || 0,
-          lateStart: act.lateStart || 0,
-          lateFinish: act.lateFinish || 0,
-          totalFloat: act.totalFloat || 0,
-          freeFloat: act.freeFloat || 0,
-          isCritical: act.isCritical || false
-        }));
-        
-        setGeneratedActivities(newActivities);
-        
-        toast({
-          title: "Schedule Generated Successfully!",
-          description: `AI created ${newActivities.length} activities for your project`,
-        });
-      } else {
-        toast({
-          title: "No Activities Generated",
-          description: "Try providing more details about your project",
-          variant: "destructive",
-        });
       }
     },
-    onError: (error: any) => {
-      console.error("Generation error:", error);
+    onError: (error) => {
+      console.error("Schedule generation failed:", error);
+      const errorMessage: ChatMessage = {
+        role: "system",
+        content: "Failed to generate schedule. Please check your API key and try again.",
+        timestamp: new Date()
+      };
+      setChatHistory(prev => [...prev, errorMessage]);
       toast({
         title: "Generation Failed",
-        description: error.message || "Failed to generate schedule. Please try again.",
-        variant: "destructive",
+        description: error.message || "Failed to generate schedule",
+        variant: "destructive"
       });
-      // Reset state on error
-      setGeneratedActivities([]);
-    },
+    }
   });
 
-  // Assistant query mutation
-  const assistantMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/ai/assistant", {
-        query: assistantQuery,
-        model: selectedModel,
-        uploadedFiles, // Include uploaded files in chat context
-        context: {
-          projectId,
-          currentActivities: generatedActivities,
-          hasFiles: uploadedFiles.length > 0
-        }
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      const newMessage = { role: "assistant", content: data.response || data.speak || "Response processed" };
-      setConversation([...conversation, { role: "user", content: assistantQuery }, newMessage]);
-      setAssistantQuery("");
-    },
-    onError: (error) => {
-      toast({
-        title: "Assistant Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Save activities mutation
-  const saveActivitiesMutation = useMutation({
-    mutationFn: async () => {
-      const results = [];
-      const errors = [];
-      
-      // Save activities one by one to handle individual errors
-      for (const activity of generatedActivities) {
-        try {
-          const response = await apiRequest("POST", `/api/projects/${projectId}/activities`, activity);
-          results.push({ success: true, activityId: activity.activityId });
-        } catch (error: any) {
-          console.error(`Failed to save activity ${activity.activityId}:`, error);
-          errors.push({ 
-            activityId: activity.activityId, 
-            name: activity.activityName,
-            error: error.message 
-          });
-        }
-      }
-      
-      if (errors.length > 0) {
-        console.error("Failed to save activities:", errors);
-        // Still return results, some may have succeeded
-        return { results, errors };
-      }
-      
-      return { results, errors: [] };
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "activities"] });
-      
-      if (data.errors.length > 0) {
-        // Some activities failed
-        const savedCount = data.results.length;
-        const failedCount = data.errors.length;
-        
-        toast({
-          title: "Partial Save",
-          description: `${savedCount} activities saved, ${failedCount} failed. Check for duplicate IDs.`,
-          variant: "destructive",
-        });
-        
-        // Keep the failed activities for retry
-        const failedActivityIds = new Set(data.errors.map(e => e.activityId));
-        const remainingActivities = generatedActivities.filter(a => failedActivityIds.has(a.activityId));
-        setGeneratedActivities(remainingActivities);
-      } else {
-        // All saved successfully
-        toast({
-          title: "Activities Saved",
-          description: `${data.results.length} activities added to the project`,
-        });
-        setGeneratedActivities([]);
-        setProjectDescription("");
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Save Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Handle drag and drop
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
+  // Helper functions
+  const countRelationships = (activities: Activity[]) => {
+    return activities.reduce((count, act) => 
+      count + (act.predecessors?.length || 0), 0
+    );
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
+  const calculateDuration = (activities: Activity[]) => {
+    if (!activities.length) return 0;
+    const firstDate = activities[0]?.earlyStart ? new Date(activities[0].earlyStart) : new Date();
+    let lastDate = firstDate;
     
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
-
-    const supportedFormats = ['.pdf', '.mpp', '.xer', '.xml', '.xlsx', '.csv', '.txt'];
-    const validFiles: File[] = [];
-
-    for (const file of files) {
-      const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-      
-      if (supportedFormats.includes(ext)) {
-        validFiles.push(file);
-      } else {
-        toast({
-          title: "Unsupported File",
-          description: `${file.name} is not a supported format. Supported: PDF, MPP, XER, XML, XLSX, CSV, TXT`,
-          variant: "destructive",
-        });
+    activities.forEach(act => {
+      if (act.earlyFinish) {
+        const finish = new Date(act.earlyFinish);
+        if (finish > lastDate) lastDate = finish;
       }
-    }
-
-    if (validFiles.length > 0) {
-      // Simulate file upload (would use ObjectUploader's upload logic in real implementation)
-      const fileNames = validFiles.map(f => f.name);
-      setUploadedFiles([...uploadedFiles, ...fileNames]);
-      toast({
-        title: "Files Uploaded",
-        description: `${validFiles.length} file(s) ready for analysis`,
-      });
-    }
-  };
-
-  // Handle file input upload
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files) return;
-
-    const supportedFormats = ['.pdf', '.mpp', '.xer', '.xml', '.xlsx', '.csv', '.txt'];
-    const validFiles: File[] = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-      
-      if (supportedFormats.includes(ext)) {
-        validFiles.push(file);
-      } else {
-        toast({
-          title: "Unsupported File",
-          description: `${file.name} is not a supported format. Supported: PDF, MPP, XER, XML, XLSX, CSV, TXT`,
-          variant: "destructive",
-        });
-      }
-    }
-
-    if (validFiles.length > 0) {
-      const fileNames = validFiles.map(f => f.name);
-      setUploadedFiles([...uploadedFiles, ...fileNames]);
-      toast({
-        title: "Files Uploaded",
-        description: `${validFiles.length} file(s) ready for analysis`,
-      });
-    }
-  };
-
-  const handleGetUploadParameters = async (file: any) => {
-    const response = await fetch(`/api/objects/upload?fileName=${encodeURIComponent(file.name)}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
     });
     
-    if (!response.ok) {
-      throw new Error("Failed to get upload parameters");
-    }
-    
-    const data = await response.json();
-    return {
-      method: "PUT" as const,
-      url: data.url,
-    };
+    return Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
   };
 
-  const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful.length > 0) {
-      const fileNames = result.successful.map(file => file.name || "unknown_file");
-      setUploadedFiles([...uploadedFiles, ...fileNames]);
-      toast({
-        title: "Files Uploaded",
-        description: `${result.successful.length} file(s) ready for AI analysis`,
+  const extractDates = (activities: Activity[]) => {
+    const dates: { start?: string; end?: string } = {};
+    if (activities.length > 0) {
+      dates.start = activities[0]?.earlyStart || undefined;
+      let lastDate = dates.start;
+      activities.forEach(act => {
+        if (act.earlyFinish && (!lastDate || act.earlyFinish > lastDate)) {
+          lastDate = act.earlyFinish;
+        }
       });
+      dates.end = lastDate;
     }
+    return dates;
+  };
+
+  const generateAssistantResponse = (data: any, isInitial?: boolean) => {
+    const meta = {
+      activities: data.activities.length,
+      relationships: countRelationships(data.activities),
+      duration: calculateDuration(data.activities),
+      criticalActivities: data.activities.filter((a: Activity) => a.isCritical).length
+    };
+
+    if (isInitial) {
+      return `✅ **Schedule Generated Successfully!**
+
+I've created a comprehensive CPM schedule with:
+• **${meta.activities} activities** organized in logical sequence
+• **${meta.relationships} dependency relationships** connecting activities
+• **${meta.duration} days** total project duration
+• **${meta.criticalActivities} critical path activities** identified
+
+**Key Features Applied:**
+${data.activities[0]?.constraintType ? '• Constraints applied based on project requirements' : ''}
+${uploadedFiles.length > 0 ? '• Extracted information from uploaded documents' : ''}
+${data.criticalPath ? `• Critical path: ${data.criticalPath.slice(0, 5).join(' → ')}${data.criticalPath.length > 5 ? '...' : ''}` : ''}
+
+**Work Breakdown Structure:**
+${generateWBSSummary(data.activities)}
+
+**Next Steps:**
+You can now:
+- Ask me to modify specific activities
+- Add constraints or milestones
+- Adjust durations or dependencies
+- Export the schedule
+
+What would you like to adjust?`;
+    } else {
+      return `✅ **Schedule Updated!**
+
+Changes applied:
+• Modified ${meta.activities} activities
+• Updated relationships and dependencies
+• Recalculated critical path
+
+The schedule now reflects your requested changes. What else would you like to modify?`;
+    }
+  };
+
+  const generateWBSSummary = (activities: Activity[]) => {
+    const wbsGroups: { [key: string]: number } = {};
+    activities.forEach(act => {
+      const wbs = act.wbs?.split('.')[0] || '1';
+      wbsGroups[wbs] = (wbsGroups[wbs] || 0) + 1;
+    });
     
-    if (result.failed && result.failed.length > 0) {
-      toast({
-        title: "Upload Failed",
-        description: `${result.failed.length} file(s) failed to upload`,
-        variant: "destructive",
-      });
-    }
+    return Object.entries(wbsGroups)
+      .slice(0, 5)
+      .map(([wbs, count]) => `• Phase ${wbs}: ${count} activities`)
+      .join('\n');
+  };
+
+  const handleSendMessage = () => {
+    if (!chatInput.trim() || isGenerating) return;
+
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: chatInput,
+      timestamp: new Date()
+    };
+
+    setChatHistory(prev => [...prev, userMessage]);
+    setChattInput("");
+    setIsGenerating(true);
+
+    generateScheduleMutation.mutate(
+      { 
+        message: chatInput, 
+        isInitial: chatHistory.length === 0 
+      },
+      {
+        onSettled: () => setIsGenerating(false)
+      }
+    );
+  };
+
+  const handleFileUpload = (result: UploadResult) => {
+    const newFiles = result.successful.map(file => 
+      file.response?.uploadURL || file.response?.url || ''
+    ).filter(Boolean);
+    
+    setUploadedFiles(prev => [...prev, ...newFiles]);
+    
+    // Add system message about file upload
+    const fileMessage: ChatMessage = {
+      role: "system",
+      content: `📎 Uploaded ${result.successful.length} file(s). The AI will analyze these documents when generating the schedule.`,
+      timestamp: new Date()
+    };
+    setChatHistory(prev => [...prev, fileMessage]);
+  };
+
+  const handleQuickAction = (action: string) => {
+    setChattInput(action);
+    handleSendMessage();
+  };
+
+  const clearChat = () => {
+    setChatHistory([]);
+    setGeneratedActivities([]);
+    setUploadedFiles([]);
   };
 
   return (
@@ -400,9 +345,10 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
             <Button
               onClick={() => setIsOpen(true)}
               size="lg"
-              className="h-14 w-14 rounded-full shadow-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+              className="rounded-full w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-xl hover:shadow-2xl transition-all"
+              data-testid="button-ai-bubble"
             >
-              <Sparkles className="h-6 w-6" />
+              <Sparkles className="w-8 h-8" />
             </Button>
           </motion.div>
         )}
@@ -410,424 +356,406 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
 
       {/* AI Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] overflow-hidden p-0">
-          <DialogTitle className="sr-only">AI Schedule Assistant</DialogTitle>
-          <DialogDescription className="sr-only">
-            AI-powered schedule generation and analysis tool
-          </DialogDescription>
-          <div className="flex flex-col h-full max-h-[90vh]">
-            {/* Header */}
-            <div className="px-6 py-4 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-slate-50 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Sparkles className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold">AI Schedule Assistant</h2>
-                  <p className="text-sm text-gray-500">Powered by Poe API</p>
-                </div>
+        <DialogContent className={`${isMinimized ? 'w-96' : 'w-[90vw] max-w-6xl'} h-[85vh] flex flex-col p-0`}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+            <div className="flex items-center gap-3">
+              <Bot className="w-6 h-6" />
+              <div>
+                <DialogTitle className="text-lg font-semibold text-white">
+                  Schedule AI Assistant
+                </DialogTitle>
+                <DialogDescription className="text-sm text-purple-100">
+                  Interactive CPM scheduling powered by AI
+                </DialogDescription>
               </div>
+            </div>
+            <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
+                className="text-white hover:bg-white/20"
+                onClick={() => setIsMinimized(!isMinimized)}
+              >
+                {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
                 onClick={() => setIsOpen(false)}
               >
-                <X className="h-4 w-4" />
+                <X className="w-4 h-4" />
               </Button>
             </div>
+          </div>
 
-            {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1">
-              <TabsList className="w-full rounded-none border-b shrink-0">
-                <TabsTrigger value="generate" className="flex-1">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Generate Schedule
+          {/* Main Content */}
+          <div className="flex-1 overflow-hidden">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+              <TabsList className="w-full justify-start px-6 py-6 bg-gray-50 rounded-none">
+                <TabsTrigger value="chat" className="gap-2">
+                  <MessageCircle className="w-4 h-4" />
+                  Interactive Chat
                 </TabsTrigger>
-                <TabsTrigger value="import" className="flex-1">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Import & Analyze
+                <TabsTrigger value="generate" className="gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Quick Generate
                 </TabsTrigger>
-                <TabsTrigger value="assistant" className="flex-1">
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Chat Assistant
+                <TabsTrigger value="files" className="gap-2">
+                  <Upload className="w-4 h-4" />
+                  Documents
+                  {uploadedFiles.length > 0 && (
+                    <Badge variant="secondary" className="ml-1">
+                      {uploadedFiles.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="preview" className="gap-2" disabled={generatedActivities.length === 0}>
+                  <GitBranch className="w-4 h-4" />
+                  Preview
+                  {generatedActivities.length > 0 && (
+                    <Badge variant="secondary" className="ml-1">
+                      {generatedActivities.length}
+                    </Badge>
+                  )}
                 </TabsTrigger>
               </TabsList>
 
-              {/* Tab Content - Scrollable */}
-              <div className="flex-1 overflow-y-auto max-h-[calc(90vh-8rem)]">
-                <div className="p-6">
-                  {/* Generate Tab */}
-                  <TabsContent value="generate" className="space-y-4 mt-0 p-0">
-                    <div className="space-y-4">
-                      <div>
-                        <Label>AI Model</Label>
+              {/* Chat Tab */}
+              <TabsContent value="chat" className="h-[calc(100%-60px)] p-0">
+                <div className="flex flex-col h-full">
+                  {/* Model Selector */}
+                  <div className="px-6 py-3 border-b bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm">AI Model:</Label>
                         <Select value={selectedModel} onValueChange={setSelectedModel}>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-48 h-8">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="max-h-[400px]">
-                            {/* Group models by category */}
-                            {["Claude", "GPT", "Google", "Reasoning", "Other"].map(category => {
-                              const categoryModels = POE_MODELS.filter(m => m.category === category);
-                              return (
-                                <div key={category}>
-                                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">
-                                    {category}
-                                  </div>
-                                  {categoryModels.map(model => (
-                                    <SelectItem key={model.value} value={model.value}>
-                                      {model.label}
-                                    </SelectItem>
-                                  ))}
-                                </div>
-                              );
-                            })}
+                          <SelectContent>
+                            {POE_MODELS.map((model) => (
+                              <SelectItem key={model.value} value={model.value}>
+                                {model.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
-
-                      <div>
-                        <Label>Project Description</Label>
-                        <Textarea
-                          placeholder="Describe your project... e.g., '3-story office building demolition with hazmat abatement, 60 day duration, start January 2025'"
-                          value={projectDescription}
-                          onChange={(e) => setProjectDescription(e.target.value)}
-                          className="min-h-[120px]"
-                        />
-                      </div>
-
-                      {/* File Upload for Generate Tab */}
-                      <div className="space-y-3">
-                        <Label>Upload Reference Documents (Optional)</Label>
-                        <div 
-                          className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
-                            isDragOver 
-                              ? 'border-blue-400 bg-blue-50' 
-                              : 'border-gray-300 hover:border-gray-400'
-                          }`}
-                          onDragOver={handleDragOver}
-                          onDragLeave={handleDragLeave}
-                          onDrop={handleDrop}
-                        >
-                          <div className="text-center">
-                            <Upload className={`h-10 w-10 mx-auto mb-3 ${isDragOver ? 'text-blue-500' : 'text-gray-400'}`} />
-                            <p className={`text-sm mb-2 ${isDragOver ? 'text-blue-600' : 'text-gray-600'}`}>
-                              {isDragOver ? 'Drop files here' : 'Drag and drop files here'}
-                            </p>
-                            <p className="text-xs text-gray-500 mb-4">or</p>
-                            
-                            <ObjectUploader
-                              maxNumberOfFiles={5}
-                              maxFileSize={52428800} // 50MB
-                              onGetUploadParameters={handleGetUploadParameters}
-                              onComplete={handleUploadComplete}
-                              buttonClassName="mx-auto"
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              Browse Files
-                            </ObjectUploader>
-                            
-                            <p className="text-xs text-gray-500 mt-3">
-                              PDF, MPP, XER, XML, XLSX, CSV, TXT (Max 50MB each)
-                            </p>
-                          </div>
-                        </div>
-
-                        {uploadedFiles.length > 0 && (
-                          <div className="border rounded-lg p-3 bg-green-50">
-                            <div className="flex items-center gap-2 mb-2">
-                              <FileText className="h-4 w-4 text-green-600" />
-                              <span className="text-sm font-medium text-green-700">
-                                Reference Files ({uploadedFiles.length})
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-2 max-h-[80px] overflow-y-auto">
-                              {uploadedFiles.map((file, index) => (
-                                <div key={index} className="text-xs bg-white px-2 py-1 rounded border flex-shrink-0">
-                                  {typeof file === 'string' ? file.split('/').pop() : file}
-                                </div>
-                              ))}
-                            </div>
-                            <p className="text-xs text-green-600 mt-2">
-                              AI will use these files as reference when generating your schedule
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
                       <Button
-                        onClick={() => generateScheduleMutation.mutate()}
-                        disabled={!projectDescription || generateScheduleMutation.isPending}
-                        className="w-full"
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearChat}
+                        className="text-gray-600"
                       >
-                        {generateScheduleMutation.isPending ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-4 w-4 mr-2" />
-                            Generate Schedule with AI
-                            {uploadedFiles.length > 0 && ` (${uploadedFiles.length} files)`}
-                          </>
-                        )}
+                        <RefreshCw className="w-4 h-4 mr-1" />
+                        Clear Chat
                       </Button>
-
-                      {generatedActivities.length > 0 && (
-                        <div className="space-y-4">
-                          <Alert className="bg-green-50 border-green-200">
-                            <AlertDescription className="text-green-800">
-                              ✓ Successfully generated {generatedActivities.length} activities. Review and save to project.
-                            </AlertDescription>
-                          </Alert>
-                          
-                          <div className="max-h-[300px] overflow-y-auto border rounded-lg p-4 bg-white">
-                            <div className="space-y-2">
-                              {generatedActivities.map((activity, index) => (
-                                <div key={activity.id || index} className="p-3 border rounded bg-gray-50">
-                                  <div className="font-medium">{activity.activityName}</div>
-                                  <div className="text-sm text-gray-600">
-                                    Duration: {activity.duration} days | ID: {activity.activityId}
-                                  </div>
-                                  {activity.wbs && (
-                                    <div className="text-xs text-gray-500">WBS: {activity.wbs}</div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={() => saveActivitiesMutation.mutate()}
-                              disabled={saveActivitiesMutation.isPending}
-                              className="flex-1"
-                            >
-                              {saveActivitiesMutation.isPending ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Saving...
-                                </>
-                              ) : (
-                                <>
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Save Activities to Project
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setGeneratedActivities([]);
-                                toast({ title: "Cleared", description: "Generated activities cleared" });
-                              }}
-                            >
-                              Clear
-                            </Button>
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </TabsContent>
+                  </div>
 
-                  {/* Import Tab */}
-                  <TabsContent value="import" className="space-y-4 mt-0 p-0">
-                    <div className="space-y-4">
-                      <Alert>
-                        <FileText className="h-4 w-4" />
-                        <AlertDescription>
-                          Upload project schedules (MPP, XER), specifications (PDF), or data files (XML, XLSX, CSV) for AI analysis and schedule generation.
-                        </AlertDescription>
-                      </Alert>
-
-                      <div 
-                        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                          isDragOver 
-                            ? 'border-blue-400 bg-blue-50' 
-                            : 'border-gray-300 hover:border-gray-400'
-                        }`}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                      >
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          multiple
-                          accept=".pdf,.mpp,.xer,.xml,.xlsx,.csv,.txt"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                        />
-                        
-                        <Upload className={`h-12 w-12 mx-auto mb-4 ${isDragOver ? 'text-blue-500' : 'text-gray-400'}`} />
-                        <p className={`text-sm mb-4 ${isDragOver ? 'text-blue-600' : 'text-gray-600'}`}>
-                          {isDragOver ? 'Drop files here to upload' : 'Drag and drop files here, or click to browse'}
+                  {/* Chat Messages */}
+                  <ScrollArea className="flex-1 px-6 py-4" ref={chatScrollRef}>
+                    {chatHistory.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Bot className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                        <h3 className="text-lg font-medium mb-2">Start a Conversation</h3>
+                        <p className="text-gray-500 mb-6">
+                          Describe your project or upload documents to generate a CPM schedule
                         </p>
                         
-                        <ObjectUploader
-                          maxNumberOfFiles={10}
-                          maxFileSize={52428800} // 50MB
-                          onGetUploadParameters={handleGetUploadParameters}
-                          onComplete={handleUploadComplete}
-                          buttonClassName="mx-auto"
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          Select Files
-                        </ObjectUploader>
-                        
-                        <p className="text-xs text-gray-500 mt-4">
-                          Supported: PDF, MPP, XER, XML, XLSX, CSV, TXT (Max 50MB)
-                        </p>
-                      </div>
-
-                      {uploadedFiles.length > 0 && (
-                        <div className="space-y-2">
-                          <Label>Uploaded Files ({uploadedFiles.length})</Label>
-                          <div className="border rounded-lg p-2 max-h-[100px] overflow-y-auto">
-                            {uploadedFiles.map((file, index) => (
-                              <div key={index} className="flex items-center gap-2 py-1">
-                                <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                <span className="text-sm truncate">{typeof file === 'string' ? file.split('/').pop() : file}</span>
-                              </div>
-                            ))}
-                          </div>
-                          
+                        {/* Quick Actions */}
+                        <div className="grid grid-cols-2 gap-2 max-w-md mx-auto">
                           <Button
-                            onClick={() => generateScheduleMutation.mutate()}
-                            disabled={generateScheduleMutation.isPending}
-                            className="w-full"
+                            variant="outline"
+                            className="text-sm"
+                            onClick={() => handleQuickAction("Create a 6-month commercial construction schedule with all trades")}
                           >
-                            {generateScheduleMutation.isPending ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Analyzing Files...
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="h-4 w-4 mr-2" />
-                                Analyze & Generate Schedule
-                              </>
-                            )}
+                            Commercial Building
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="text-sm"
+                            onClick={() => handleQuickAction("Generate residential home construction schedule, 4 bedroom house")}
+                          >
+                            Residential Home
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="text-sm"
+                            onClick={() => handleQuickAction("Create infrastructure project schedule for road construction")}
+                          >
+                            Infrastructure
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="text-sm"
+                            onClick={() => handleQuickAction("Generate renovation schedule for office building modernization")}
+                          >
+                            Renovation
                           </Button>
                         </div>
-                      )}
-                    </div>
-                  </TabsContent>
-
-                  {/* Assistant Tab */}
-                  <TabsContent value="assistant" className="space-y-4 mt-0 p-0">
-                    <div className="space-y-4">
-                      <div className="border rounded-lg p-4 h-[400px] overflow-y-auto bg-gray-50">
-                        {conversation.length === 0 ? (
-                          <div className="text-center text-gray-500 mt-8">
-                            <Bot className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                            <p>Ask me anything about scheduling, CPM, or your project!</p>
-                            <p className="text-xs mt-2">You can also upload files for analysis</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {conversation.map((msg, index) => (
-                              <div
-                                key={index}
-                                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                              >
-                                <div
-                                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                                    msg.role === "user"
-                                      ? "bg-blue-600 text-white"
-                                      : "bg-white border"
-                                  }`}
-                                >
-                                  <p className="text-sm">{msg.content}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {chatHistory.map((message, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[80%] rounded-lg p-4 ${
+                                message.role === 'user'
+                                  ? 'bg-purple-600 text-white'
+                                  : message.role === 'assistant'
+                                  ? 'bg-gray-100'
+                                  : 'bg-blue-50 border border-blue-200'
+                              }`}
+                            >
+                              <div className="flex items-start gap-2">
+                                {message.role === 'assistant' && <Bot className="w-5 h-5 mt-0.5" />}
+                                {message.role === 'user' && <User className="w-5 h-5 mt-0.5" />}
+                                {message.role === 'system' && <Info className="w-5 h-5 mt-0.5 text-blue-600" />}
+                                <div className="flex-1">
+                                  <div className="text-sm whitespace-pre-wrap">
+                                    {message.content}
+                                  </div>
+                                  
+                                  {/* Metadata Display */}
+                                  {message.metadata && (
+                                    <div className="mt-3 pt-3 border-t space-y-2">
+                                      <div className="flex flex-wrap gap-2">
+                                        {message.metadata.activitiesGenerated && (
+                                          <Badge variant="outline">
+                                            <Calendar className="w-3 h-3 mr-1" />
+                                            {message.metadata.activitiesGenerated} activities
+                                          </Badge>
+                                        )}
+                                        {message.metadata.relationshipsCreated && (
+                                          <Badge variant="outline">
+                                            <Link2 className="w-3 h-3 mr-1" />
+                                            {message.metadata.relationshipsCreated} links
+                                          </Badge>
+                                        )}
+                                        {message.metadata.contractDuration && (
+                                          <Badge variant="outline">
+                                            <Calendar className="w-3 h-3 mr-1" />
+                                            {message.metadata.contractDuration} days
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {message.metadata.extractedDates?.start && (
+                                        <div className="text-xs text-gray-600">
+                                          Schedule: {message.metadata.extractedDates.start} to {message.metadata.extractedDates.end}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                            ))}
+                              <div className="text-xs text-gray-400 mt-2">
+                                {new Date(message.timestamp).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {isGenerating && (
+                          <div className="flex justify-start">
+                            <div className="bg-gray-100 rounded-lg p-4">
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span>Generating schedule...</span>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
+                    )}
+                  </ScrollArea>
 
-                      {/* File Upload Area for Chat */}
-                      {uploadedFiles.length > 0 && (
-                        <div className="border rounded-lg p-3 bg-blue-50">
-                          <div className="flex items-center gap-2 mb-2">
-                            <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                            <span className="text-sm font-medium text-blue-700">
-                              Files ready for analysis ({uploadedFiles.length})
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-2 max-h-[60px] overflow-y-auto">
-                            {uploadedFiles.slice(-3).map((file, index) => (
-                              <div key={index} className="text-xs bg-white px-2 py-1 rounded border flex-shrink-0">
-                                {typeof file === 'string' ? file.split('/').pop() : file}
-                              </div>
-                            ))}
-                            {uploadedFiles.length > 3 && (
-                              <div className="text-xs text-blue-600 px-2 py-1 flex-shrink-0">
-                                +{uploadedFiles.length - 3} more
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <div className="flex flex-col gap-2 flex-1">
-                          <Textarea
-                            placeholder="Ask about CPM, scheduling, uploaded files, or get help with your project..."
-                            value={assistantQuery}
-                            onChange={(e) => setAssistantQuery(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                assistantMutation.mutate();
-                              }
-                            }}
-                            className="min-h-[60px] resize-none"
-                          />
-                          
-                          {/* Quick upload button for chat */}
-                          <div className="flex gap-2">
-                            <ObjectUploader
-                              maxNumberOfFiles={5}
-                              maxFileSize={52428800} // 50MB
-                              onGetUploadParameters={handleGetUploadParameters}
-                              onComplete={handleUploadComplete}
-                              buttonClassName="text-xs h-8"
-                            >
-                              <Upload className="h-3 w-3 mr-1" />
-                              Upload Files
-                            </ObjectUploader>
-                            
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setUploadedFiles([])}
-                              disabled={uploadedFiles.length === 0}
-                              className="text-xs h-8"
-                            >
-                              Clear Files
-                            </Button>
-                          </div>
-                        </div>
-                        
+                  {/* Chat Input */}
+                  <div className="px-6 py-4 border-t bg-gray-50">
+                    <div className="flex gap-2">
+                      <Textarea
+                        value={chatInput}
+                        onChange={(e) => setChattInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        placeholder="Describe your project or ask for changes..."
+                        className="flex-1 min-h-[80px] resize-none"
+                        disabled={isGenerating}
+                      />
+                      <div className="flex flex-col gap-2">
                         <Button
-                          onClick={() => assistantMutation.mutate()}
-                          disabled={!assistantQuery || assistantMutation.isPending}
-                          size="icon"
-                          className="h-[60px] w-[60px]"
+                          onClick={handleSendMessage}
+                          disabled={!chatInput.trim() || isGenerating}
+                          className="bg-purple-600 hover:bg-purple-700"
                         >
-                          {assistantMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                          {isGenerating ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
-                            <Send className="h-4 w-4" />
+                            <Send className="w-4 h-4" />
                           )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Upload className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
-                  </TabsContent>
+                    
+                    {uploadedFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {uploadedFiles.map((file, idx) => (
+                          <Badge key={idx} variant="secondary">
+                            <FileText className="w-3 h-3 mr-1" />
+                            Document {idx + 1}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </TabsContent>
+
+              {/* Quick Generate Tab */}
+              <TabsContent value="generate" className="px-6 py-4">
+                <div className="space-y-4">
+                  <div>
+                    <Label>Project Description</Label>
+                    <Textarea
+                      value={projectDescription}
+                      onChange={(e) => setProjectDescription(e.target.value)}
+                      placeholder="Describe your construction project in detail..."
+                      className="min-h-[150px] mt-2"
+                    />
+                  </div>
+                  
+                  <Button
+                    onClick={() => {
+                      if (projectDescription) {
+                        setActiveTab("chat");
+                        setChattInput(projectDescription);
+                        handleSendMessage();
+                      }
+                    }}
+                    disabled={!projectDescription.trim() || generateScheduleMutation.isPending}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                  >
+                    {generateScheduleMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating Schedule...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Generate Schedule
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Files Tab */}
+              <TabsContent value="files" className="px-6 py-4">
+                <div
+                  className={`border-2 border-dashed rounded-lg p-8 text-center ${
+                    isDragOver ? 'border-purple-500 bg-purple-50' : 'border-gray-300'
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(true);
+                  }}
+                  onDragLeave={() => setIsDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(false);
+                  }}
+                >
+                  <ObjectUploader
+                    onUploadComplete={handleFileUpload}
+                    projectId={projectId}
+                    folder="schedule-docs"
+                  />
+                  
+                  {uploadedFiles.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {uploadedFiles.map((file, idx) => (
+                        <Alert key={idx}>
+                          <FileText className="w-4 h-4" />
+                          <AlertDescription>
+                            Document {idx + 1} uploaded successfully
+                          </AlertDescription>
+                        </Alert>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.txt,.csv,.xlsx"
+                  className="hidden"
+                  onChange={(e) => {
+                    // Handle file selection
+                  }}
+                />
+              </TabsContent>
+
+              {/* Preview Tab */}
+              <TabsContent value="preview" className="px-6 py-4">
+                {generatedActivities.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium">
+                        Generated Schedule ({generatedActivities.length} activities)
+                      </h3>
+                      <div className="flex gap-2">
+                        <Badge variant="outline">
+                          <Link2 className="w-3 h-3 mr-1" />
+                          {countRelationships(generatedActivities)} relationships
+                        </Badge>
+                        <Badge variant="outline">
+                          <AlertCircle className="w-3 h-3 mr-1" />
+                          {generatedActivities.filter(a => a.isCritical).length} critical
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <ScrollArea className="h-[400px]">
+                      <ScheduleEditor 
+                        activities={generatedActivities} 
+                        onActivitiesChange={setGeneratedActivities}
+                      />
+                    </ScrollArea>
+                    
+                    <Alert>
+                      <CheckCircle className="w-4 h-4" />
+                      <AlertDescription>
+                        Schedule has been saved to your project. View in the Schedule tab to see the Gantt chart with relationship arrows.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-gray-500">
+                      No schedule generated yet. Start a conversation to create one.
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
             </Tabs>
           </div>
         </DialogContent>

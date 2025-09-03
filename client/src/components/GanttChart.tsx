@@ -197,6 +197,9 @@ export default function GanttChart({
   const renderRelationshipLines = () => {
     if (!showRelationships) return null;
     
+    console.log('Rendering relationships:', relationships.length, 'relationships');
+    console.log('Activity map size:', activityIndexMap.size);
+    
     return relationships.map(rel => {
       const predIndex = activityIndexMap.get(rel.predecessorId);
       const succIndex = activityIndexMap.get(rel.successorId);
@@ -209,7 +212,10 @@ export default function GanttChart({
       const predPos = getActivityPosition(predecessor);
       const succPos = getActivityPosition(successor);
       
-      if (!predPos || !succPos) return null;
+      if (!predPos || !succPos) {
+        console.log('Missing position for relationship:', rel.id, 'pred:', predPos, 'succ:', succPos);
+        return null;
+      }
       
       // Calculate connection points
       let x1 = predPos.left + predPos.width;
