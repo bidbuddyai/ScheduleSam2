@@ -101,7 +101,7 @@ export default function AIFloatingBubble({ projectId, defaultOpen = false }: AIF
   const [projectDescription, setProjectDescription] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [generatedActivities, setGeneratedActivities] = useState<Activity[]>([]);
-  const [chatInput, setChattInput] = useState("");
+  const [chatInput, setChatInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -133,6 +133,7 @@ export default function AIFloatingBubble({ projectId, defaultOpen = false }: AIF
           projectDescription: request.message,
           userRequest: request.message,
           model: selectedModel,
+          projectId: projectId, // Essential for saving changes!
           uploadedFiles,
           currentActivities: generatedActivities
         });
@@ -307,7 +308,7 @@ The schedule now reflects your requested changes. What else would you like to mo
       if (response.ok) {
         const data = await response.json();
         if (data.enhancedPrompt) {
-          setChattInput(data.enhancedPrompt);
+          setChatInput(data.enhancedPrompt);
           toast({
             title: "Prompt Enhanced",
             description: "Your prompt has been improved for better results",
@@ -326,6 +327,40 @@ The schedule now reflects your requested changes. What else would you like to mo
     }
   };
 
+  // Enhance prompt for Quick Generate tab
+  const enhanceQuickPrompt = async () => {
+    if (!projectDescription.trim() || isEnhancing) return;
+    
+    setIsEnhancing(true);
+    try {
+      const response = await apiRequest("POST", "/api/schedule/ai/enhance-prompt", {
+        prompt: projectDescription,
+        model: "Claude-3-Haiku",
+        uploadedFiles: uploadedFiles
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.enhancedPrompt) {
+          setProjectDescription(data.enhancedPrompt);
+          toast({
+            title: "Prompt Enhanced",
+            description: "Your prompt has been improved with CPM details",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to enhance prompt:", error);
+      toast({
+        title: "Enhancement Failed",
+        description: "Could not enhance prompt. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+  
   const handleSendMessage = () => {
     if (!chatInput.trim() || isGenerating) return;
 
@@ -336,7 +371,7 @@ The schedule now reflects your requested changes. What else would you like to mo
     };
 
     setChatHistory(prev => [...prev, userMessage]);
-    setChattInput("");
+    setChatInput("");
     setIsGenerating(true);
 
     generateScheduleMutation.mutate(
@@ -677,7 +712,7 @@ The schedule now reflects your requested changes. What else would you like to mo
                       <div className="flex-1 space-y-2">
                         <Textarea
                           value={chatInput}
-                          onChange={(e) => setChattInput(e.target.value)}
+                          onChange={(e) => setChatInput(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
@@ -780,35 +815,7 @@ The schedule now reflects your requested changes. What else would you like to mo
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={async () => {
-                              setIsEnhancing(true);
-                              try {
-                                const response = await apiRequest("POST", "/api/schedule/ai/enhance-prompt", {
-                                  prompt: projectDescription,
-                                  model: "Claude-3-Haiku",
-                                  uploadedFiles: uploadedFiles
-                                });
-                                if (response.ok) {
-                                  const data = await response.json();
-                                  if (data.enhancedPrompt) {
-                                    setProjectDescription(data.enhancedPrompt);
-                                    toast({
-                                      title: "Prompt Enhanced",
-                                      description: "Your prompt has been improved for better results",
-                                    });
-                                  }
-                                }
-                              } catch (error) {
-                                console.error("Failed to enhance prompt:", error);
-                                toast({
-                                  title: "Enhancement Failed",
-                                  description: "Could not enhance prompt. Please try again.",
-                                  variant: "destructive"
-                                });
-                              } finally {
-                                setIsEnhancing(false);
-                              }
-                            }}
+                            onClick={enhanceQuickPrompt}
                             disabled={isEnhancing || generateScheduleMutation.isPending}
                             className="w-full mt-2 justify-start text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                           >
