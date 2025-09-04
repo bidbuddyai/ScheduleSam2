@@ -1197,7 +1197,7 @@ The schedule now reflects your requested changes. What else would you like to mo
                             name: "New Activity",
                             originalDuration: 5,
                             remainingDuration: 5,
-                            status: "NotStarted",
+                            status: "Not Started",
                             percentComplete: 0,
                             type: "Task",
                             predecessors: [],
