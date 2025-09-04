@@ -32,6 +32,9 @@ import {
   RefreshCw,
   Wand2,
   Clock,
+  Plus,
+  Trash2,
+  Save,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -405,7 +408,7 @@ The schedule now reflects your requested changes. What else would you like to mo
   };
 
   const handleQuickAction = (action: string) => {
-    setChattInput(action);
+    setChatInput(action);
     handleSendMessage();
   };
 
@@ -1102,7 +1105,7 @@ The schedule now reflects your requested changes. What else would you like to mo
                     onClick={() => {
                       if (projectDescription) {
                         setActiveTab("chat");
-                        setChattInput(projectDescription);
+                        setChatInput(projectDescription);
                         handleSendMessage();
                       }
                     }}
@@ -1182,33 +1185,162 @@ The schedule now reflects your requested changes. What else would you like to mo
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-medium">
-                        Generated Schedule ({generatedActivities.length} activities)
+                        Preview & Edit Schedule
                       </h3>
-                      <div className="flex gap-2">
-                        <Badge variant="outline">
-                          <Link2 className="w-3 h-3 mr-1" />
-                          {countRelationships(generatedActivities)} relationships
-                        </Badge>
-                        <Badge variant="outline">
-                          <AlertCircle className="w-3 h-3 mr-1" />
-                          {generatedActivities.filter(a => a.isCritical).length} critical
-                        </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          // Add a new activity
+                          const newActivity: Activity = {
+                            activityId: `NEW_${Date.now()}`,
+                            name: "New Activity",
+                            originalDuration: 5,
+                            remainingDuration: 5,
+                            status: "NotStarted",
+                            percentComplete: 0,
+                            type: "Task",
+                            predecessors: [],
+                            isCritical: false,
+                            totalFloat: 0,
+                            freeFloat: 0,
+                            earlyStart: new Date().toISOString(),
+                            earlyFinish: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+                          };
+                          setGeneratedActivities([...generatedActivities, newActivity]);
+                          toast({
+                            title: "Activity Added",
+                            description: "New activity added. Edit the name and duration below.",
+                          });
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Activity
+                      </Button>
+                    </div>
+
+                    {/* Quick Stats */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-gray-50 rounded px-3 py-2">
+                        <p className="text-xs text-gray-600">Activities</p>
+                        <p className="text-lg font-semibold">{generatedActivities.length}</p>
+                      </div>
+                      <div className="bg-orange-50 rounded px-3 py-2">
+                        <p className="text-xs text-gray-600">Critical</p>
+                        <p className="text-lg font-semibold text-orange-600">
+                          {generatedActivities.filter(a => a.isCritical).length}
+                        </p>
+                      </div>
+                      <div className="bg-blue-50 rounded px-3 py-2">
+                        <p className="text-xs text-gray-600">Duration</p>
+                        <p className="text-lg font-semibold text-blue-600">
+                          {Math.max(...generatedActivities.map(a => a.originalDuration || 0))} days
+                        </p>
                       </div>
                     </div>
-                    
-                    <ScrollArea className="h-[400px]">
-                      <ScheduleEditor 
-                        activities={generatedActivities} 
-                        onActivitiesChange={setGeneratedActivities}
-                      />
-                    </ScrollArea>
-                    
-                    <Alert>
-                      <CheckCircle className="w-4 h-4" />
-                      <AlertDescription>
-                        Schedule has been saved to your project. View in the Schedule tab to see the Gantt chart with relationship arrows.
-                      </AlertDescription>
-                    </Alert>
+
+                    {/* Editable Activity List */}
+                    <div className="border rounded-lg">
+                      <ScrollArea className="h-[350px]">
+                        <table className="w-full text-sm">
+                          <thead className="border-b bg-gray-50">
+                            <tr>
+                              <th className="text-left p-3">Activity Name</th>
+                              <th className="text-center p-3 w-24">Duration</th>
+                              <th className="text-center p-3 w-20">Critical</th>
+                              <th className="text-center p-3 w-12"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {generatedActivities.map((activity, idx) => (
+                              <tr key={activity.activityId} className="border-b hover:bg-gray-50">
+                                <td className="p-2">
+                                  <input
+                                    type="text"
+                                    value={activity.name}
+                                    onChange={(e) => {
+                                      const updated = [...generatedActivities];
+                                      updated[idx].name = e.target.value;
+                                      setGeneratedActivities(updated);
+                                    }}
+                                    className="w-full px-2 py-1 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-purple-500 focus:outline-none"
+                                  />
+                                </td>
+                                <td className="p-2 text-center">
+                                  <input
+                                    type="number"
+                                    value={activity.originalDuration}
+                                    onChange={(e) => {
+                                      const newDuration = Math.max(1, parseInt(e.target.value) || 1);
+                                      const updated = [...generatedActivities];
+                                      updated[idx].originalDuration = newDuration;
+                                      updated[idx].remainingDuration = newDuration;
+                                      setGeneratedActivities(updated);
+                                    }}
+                                    className="w-16 text-center px-2 py-1 bg-transparent border rounded hover:border-purple-400 focus:border-purple-500 focus:outline-none"
+                                    min="1"
+                                  />
+                                </td>
+                                <td className="p-2 text-center">
+                                  {activity.isCritical ? (
+                                    <Badge variant="destructive" className="text-xs">Yes</Badge>
+                                  ) : (
+                                    <span className="text-gray-400">No</span>
+                                  )}
+                                </td>
+                                <td className="p-2">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    onClick={() => {
+                                      setGeneratedActivities(
+                                        generatedActivities.filter(a => a.activityId !== activity.activityId)
+                                      );
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </ScrollArea>
+                    </div>
+
+                    {/* Save Button */}
+                    <div className="flex justify-between items-center">
+                      <Alert className="flex-1 mr-4">
+                        <Info className="h-4 w-4" />
+                        <AlertDescription className="text-xs">
+                          Edit names and durations inline. Changes are temporary until saved.
+                        </AlertDescription>
+                      </Alert>
+                      <Button
+                        onClick={async () => {
+                          await saveScheduleMutation.mutateAsync(generatedActivities);
+                          toast({
+                            title: "Schedule Saved",
+                            description: `${generatedActivities.length} activities saved to project.`,
+                          });
+                        }}
+                        disabled={saveScheduleMutation.isPending}
+                        className="bg-purple-600 hover:bg-purple-700"
+                      >
+                        {saveScheduleMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save to Project
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-12">
