@@ -378,14 +378,21 @@ The schedule now reflects your requested changes. What else would you like to mo
             exit={{ scale: 0, opacity: 0 }}
             className="fixed bottom-6 right-6 z-50"
           >
-            <Button
-              onClick={() => setIsOpen(true)}
-              size="lg"
-              className="rounded-full w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-xl hover:shadow-2xl transition-all"
-              data-testid="button-ai-bubble"
-            >
-              <Sparkles className="w-8 h-8" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setIsOpen(true)}
+                  size="lg"
+                  className="rounded-full w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-xl hover:shadow-2xl transition-all"
+                  data-testid="button-ai-bubble"
+                >
+                  <Sparkles className="w-8 h-8" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p>AI Schedule Assistant - Edit and refine your schedule</p>
+              </TooltipContent>
+            </Tooltip>
           </motion.div>
         )}
       </AnimatePresence>
@@ -531,6 +538,14 @@ The schedule now reflects your requested changes. What else would you like to mo
                           >
                             Renovation
                           </Button>
+                        </div>
+                        
+                        <div className="mt-6 p-4 bg-purple-50 rounded-lg max-w-md mx-auto">
+                          <Info className="w-5 h-5 text-purple-600 mb-2 mx-auto" />
+                          <p className="text-sm text-purple-900">
+                            <strong>Pro Tip:</strong> Use this dialog for initial schedule creation.
+                            After generation, use the floating button (bottom right) for edits and refinements.
+                          </p>
                         </div>
                       </div>
                     ) : (
@@ -705,6 +720,96 @@ The schedule now reflects your requested changes. What else would you like to mo
                       placeholder="Describe your construction project in detail..."
                       className="min-h-[150px] mt-2"
                     />
+                    
+                    {/* Enhance Button for Quick Generate */}
+                    {projectDescription.trim() && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              setIsEnhancing(true);
+                              try {
+                                const response = await apiRequest("POST", "/api/schedule/ai/enhance-prompt", {
+                                  prompt: projectDescription,
+                                  model: "Claude-3-Haiku",
+                                  uploadedFiles: uploadedFiles
+                                });
+                                if (response.ok) {
+                                  const data = await response.json();
+                                  if (data.enhancedPrompt) {
+                                    setProjectDescription(data.enhancedPrompt);
+                                    toast({
+                                      title: "Prompt Enhanced",
+                                      description: "Your prompt has been improved for better results",
+                                    });
+                                  }
+                                }
+                              } catch (error) {
+                                console.error("Failed to enhance prompt:", error);
+                                toast({
+                                  title: "Enhancement Failed",
+                                  description: "Could not enhance prompt. Please try again.",
+                                  variant: "destructive"
+                                });
+                              } finally {
+                                setIsEnhancing(false);
+                              }
+                            }}
+                            disabled={isEnhancing || generateScheduleMutation.isPending}
+                            className="w-full mt-2 justify-start text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                          >
+                            {isEnhancing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Enhancing...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="w-4 h-4 mr-2" />
+                                Enhance Prompt with AI
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-sm">
+                            Uses AI to improve your prompt with CPM details, durations, and constraints
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  
+                  {/* File Upload Section */}
+                  <div>
+                    <Label className="mb-2">Upload Documents (Optional)</Label>
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                        isDragOver ? 'border-purple-500 bg-purple-50' : 'border-gray-300'
+                      }`}
+                    >
+                      <ObjectUploader
+                        onUploadComplete={handleFileUpload}
+                        projectId={projectId}
+                        folder="schedule-docs"
+                      />
+                      <p className="text-xs text-gray-600 mt-2">
+                        Upload bid documents, specs, or drawings for AI to extract contract duration and scope
+                      </p>
+                      
+                      {uploadedFiles.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2 justify-center">
+                          {uploadedFiles.map((file, idx) => (
+                            <Badge key={idx} variant="secondary">
+                              <FileText className="w-3 h-3 mr-1" />
+                              Document {idx + 1}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   <Button
@@ -730,6 +835,10 @@ The schedule now reflects your requested changes. What else would you like to mo
                       </>
                     )}
                   </Button>
+                  
+                  <div className="text-xs text-gray-500 text-center">
+                    Tip: Upload bid documents to extract contract duration and milestones automatically
+                  </div>
                 </div>
               </TabsContent>
 
