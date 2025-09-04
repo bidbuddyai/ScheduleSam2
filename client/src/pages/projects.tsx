@@ -4,7 +4,8 @@ import { Link } from "wouter";
 import Layout from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
@@ -19,7 +20,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, User, Plus, Building, AlertTriangle, ChevronRight } from "lucide-react";
+import { LogOut, User, Plus, Building, AlertTriangle, ChevronRight, Trash2 } from "lucide-react";
 
 const createProjectSchema = insertProjectSchema.extend({
   name: z.string().min(1, "Project name is required"),
@@ -29,6 +30,7 @@ type CreateProjectForm = z.infer<typeof createProjectSchema>;
 
 export default function Projects() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   
@@ -42,6 +44,32 @@ export default function Projects() {
       name: "",
       colorPrimary: "#03512A",
       colorSecondary: "#1C7850",
+    },
+  });
+  
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      const response = await apiRequest("DELETE", `/api/projects/${projectId}`);
+      if (!response.ok) {
+        throw new Error("Failed to delete project");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      toast({
+        title: "Project deleted",
+        description: "The project has been deleted successfully.",
+      });
+      setDeleteProjectId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error deleting project",
+        description: error.message || "Failed to delete the project.",
+        variant: "destructive",
+      });
+      setDeleteProjectId(null);
     },
   });
   
@@ -284,6 +312,15 @@ export default function Projects() {
                             →
                           </motion.span>
                         </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => setDeleteProjectId(project.id)}
+                          data-testid={`button-delete-project-${project.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -292,6 +329,31 @@ export default function Projects() {
             </AnimatePresence>
           </div>
         )}
+        
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteProjectId} onOpenChange={(open) => !open && setDeleteProjectId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the project
+                and all its associated data including activities, relationships, and settings.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteProjectId(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deleteProjectId && deleteProjectMutation.mutate(deleteProjectId)}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                data-testid="button-confirm-delete"
+              >
+                Delete Project
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </Layout>
   );
