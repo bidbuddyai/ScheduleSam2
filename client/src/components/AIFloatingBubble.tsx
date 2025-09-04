@@ -96,6 +96,7 @@ export default function AIFloatingBubble({ projectId, defaultOpen = false }: AIF
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isMiniChat, setIsMiniChat] = useState(false); // New state for mini chat mode
   const [activeTab, setActiveTab] = useState("chat");
   const [selectedModel, setSelectedModel] = useState("Claude-Sonnet-4");
   const [projectDescription, setProjectDescription] = useState("");
@@ -108,6 +109,7 @@ export default function AIFloatingBubble({ projectId, defaultOpen = false }: AIF
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const miniChatScrollRef = useRef<HTMLDivElement>(null);
   
   // Auto-open when defaultOpen is true (from project creation)
   useEffect(() => {
@@ -412,11 +414,31 @@ The schedule now reflects your requested changes. What else would you like to mo
     setUploadedFiles([]);
   };
 
+  const handleCloseModal = () => {
+    setIsOpen(false);
+    // If there's chat history, show the mini chat instead of just closing
+    if (chatHistory.length > 0) {
+      setIsMiniChat(true);
+    }
+  };
+
+  const handleOpenFullModal = () => {
+    setIsMiniChat(false);
+    setIsOpen(true);
+  };
+
+  // Scroll to bottom for mini chat
+  useEffect(() => {
+    if (miniChatScrollRef.current) {
+      miniChatScrollRef.current.scrollTop = miniChatScrollRef.current.scrollHeight;
+    }
+  }, [chatHistory, isMiniChat]);
+
   return (
     <TooltipProvider>
-      {/* Floating Bubble */}
+      {/* Floating Bubble - Only show if neither modal nor mini chat is open */}
       <AnimatePresence>
-        {!isOpen && (
+        {!isOpen && !isMiniChat && (
           <motion.div
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -442,8 +464,122 @@ The schedule now reflects your requested changes. What else would you like to mo
         )}
       </AnimatePresence>
 
+      {/* Mini Chat Window */}
+      <AnimatePresence>
+        {isMiniChat && !isOpen && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-6 right-6 z-50 w-96 h-[500px] bg-white rounded-lg shadow-2xl flex flex-col"
+          >
+            {/* Mini Chat Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-lg">
+              <div className="flex items-center gap-2">
+                <Bot className="w-5 h-5" />
+                <span className="font-medium">AI Schedule Assistant</span>
+                {isGenerating && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  onClick={handleOpenFullModal}
+                  size="icon"
+                  variant="ghost"
+                  className="text-white hover:bg-white/20 h-8 w-8"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => setIsMiniChat(false)}
+                  size="icon"
+                  variant="ghost"
+                  className="text-white hover:bg-white/20 h-8 w-8"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Mini Chat Messages */}
+            <div className="flex-1 overflow-y-auto px-4 py-3" ref={miniChatScrollRef}>
+              <div className="space-y-3">
+                {chatHistory.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-lg px-3 py-2 ${msg.role === 'user' ? 'bg-purple-100 text-purple-900' : 'bg-gray-100'}`}>
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      {msg.metadata && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          {msg.metadata.activitiesGenerated && (
+                            <p className="text-xs text-gray-500">
+                              Generated {msg.metadata.activitiesGenerated} activities
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {isGenerating && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm">AI is thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Mini Chat Input */}
+            <div className="p-3 border-t">
+              <div className="flex gap-2">
+                <Textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Ask about your schedule..."
+                  className="min-h-[60px] resize-none text-sm"
+                  disabled={isGenerating}
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!chatInput.trim() || isGenerating}
+                  className="bg-purple-600 hover:bg-purple-700"
+                  size="icon"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant="outline" className="text-xs">
+                  {selectedModel}
+                </Badge>
+                {generatedActivities.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {generatedActivities.length} activities
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* AI Dialog */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={isOpen} onOpenChange={handleCloseModal}>
         <DialogContent className={`${isMinimized ? 'w-96' : 'w-[90vw] max-w-6xl'} h-[85vh] flex flex-col p-0`}>
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-600 to-blue-600 text-white">

@@ -23,6 +23,17 @@ export interface ScheduleAIResponse {
 // AI prompt for schedule operations
 const SCHEDULE_SYSTEM_PROMPT = `You are an expert CPM scheduler with Primavera P6 and MS Project expertise. Create professional construction schedules with complete logic networks.
 
+**CRITICAL DURATION CONSTRAINTS:**
+- **DEFAULT CONTRACT DURATION**: If not specified, assume 90 days for small projects, 180 days for medium, 365 days for large
+- **MAXIMUM TOTAL DURATION**: Never exceed 365 days unless explicitly stated in documents
+- **TYPICAL CONSTRUCTION DURATIONS**:
+  - Small residential: 60-120 days
+  - Commercial building: 180-365 days
+  - Infrastructure: 365-730 days
+  - Simple renovation: 30-90 days
+- **ACTIVITY DURATIONS**: Keep individual activities between 1-30 days (most should be 3-15 days)
+- **IF TOTAL EXCEEDS TARGET**: Use more parallel paths, increase crew sizes, or overlap activities
+
 **DOCUMENT ANALYSIS PRIORITY:**
 When documents are provided, ALWAYS extract:
 1. **CONTRACT DURATION** - Total days/months from NTP to completion
@@ -120,7 +131,14 @@ ${request.projectDescription}${uploadedContent}
 Start Date: ${request.startDate || 'Today'}
 ${request.constraints ? `Constraints: ${request.constraints.join(', ')}` : ''}
 
-**PRIMARY OBJECTIVE:** Generate a complete CPM schedule that FITS WITHIN THE CONTRACT DURATION.
+**CRITICAL REQUIREMENTS:**
+1. If contract duration is mentioned, the TOTAL SCHEDULE MUST NOT EXCEED IT
+2. If no duration is specified, estimate based on project complexity (30-180 days typical)
+3. Individual activity durations should be 1-20 days (most 3-10 days)
+4. Use parallel work paths to compress schedule if needed
+5. VERIFY TOTAL DURATION by calculating critical path
+
+**PRIMARY OBJECTIVE:** Generate a complete CPM schedule that FITS WITHIN A REASONABLE CONTRACT DURATION.
 
 Analyze the uploaded documents to find:
 1. **Contract duration** (look for "substantial completion", "contract time", "calendar days", "working days")
