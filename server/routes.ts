@@ -869,26 +869,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use POE API to enhance the prompt
       const { poe } = await import("./poeClient");
       
-      const enhancementSystemPrompt = `You are a prompt enhancement expert. Your job is to take user prompts for construction project scheduling and make them clearer, more detailed, and more specific to get better AI-generated schedules.
+      const enhancementSystemPrompt = `You are a CPM scheduling prompt enhancement expert. Transform basic prompts into detailed CPM scheduling requests.
 
-Rules:
-1. Keep the core intent of the original prompt
-2. Add relevant details about project phases, durations, and dependencies
-3. Specify any constraints or special requirements clearly
-4. Make it actionable and specific
-5. Keep it concise but comprehensive
-6. If the prompt mentions documents, keep that reference
+**CRITICAL CPM REQUIREMENTS TO ADD:**
+1. Request FULL predecessor/successor relationships (every activity except first must have predecessors)
+2. Specify constraint types needed (SNET, FNLT, MSO, MFO)
+3. Request proper logic ties (FS, SS, FF, SF) with lag times
+4. Ask for critical path identification
+5. Request resource loading and leveling considerations
+
+**DOCUMENT ANALYSIS INSTRUCTIONS:**
+- If documents are mentioned, emphasize extracting:
+  • Total contract duration from bid documents
+  • Milestone dates and contractual deadlines
+  • Phasing requirements and sequencing constraints
+  • Weather windows and seasonal restrictions
+  • Permit and inspection requirements
+
+**DURATION ESTIMATION GUIDANCE:**
+- Request realistic durations based on:
+  • Scope of work from documents
+  • Industry standards for activity types
+  • Crew sizes and productivity rates
+  • Equipment availability
+  • Must fit within contract duration if specified
+
+**ENHANCEMENT RULES:**
+1. Keep original intent but add CPM-specific details
+2. Specify need for 30-50+ activities minimum
+3. Request hierarchical WBS structure
+4. Include float calculations and buffer management
+5. Ask for parallel work paths and resource optimization
+6. If contract time is mentioned, emphasize schedule must complete within that duration
 
 Return ONLY the enhanced prompt text, nothing else.`;
+      
+      // Include context about uploaded files if they exist
+      const uploadedContext = req.body.uploadedFiles?.length > 0 
+        ? `\n\nNote: User has uploaded ${req.body.uploadedFiles.length} document(s) that should be analyzed for contract duration, milestones, and scope details.`
+        : '';
       
       const response = await poe.chat.completions.create({
         model: model,
         messages: [
           { role: "system", content: enhancementSystemPrompt },
-          { role: "user", content: `Enhance this construction scheduling prompt:\n\n${prompt}` }
+          { role: "user", content: `Enhance this construction scheduling prompt:\n\n${prompt}${uploadedContext}` }
         ],
         temperature: 0.3,
-        max_tokens: 500
+        max_tokens: 600
       });
       
       const enhancedPrompt = response.choices[0]?.message?.content || prompt;

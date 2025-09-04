@@ -290,7 +290,8 @@ The schedule now reflects your requested changes. What else would you like to mo
     try {
       const response = await apiRequest("POST", "/api/schedule/ai/enhance-prompt", {
         prompt: chatInput,
-        model: "Claude-3-Haiku" // Fast and cheap model for enhancement
+        model: "Claude-3-Haiku", // Fast and cheap model for enhancement
+        uploadedFiles: uploadedFiles // Pass uploaded files context for better enhancement
       });
       
       if (response.ok) {

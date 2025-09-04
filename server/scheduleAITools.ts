@@ -21,24 +21,41 @@ export interface ScheduleAIResponse {
 }
 
 // AI prompt for schedule operations
-const SCHEDULE_SYSTEM_PROMPT = `You are a construction scheduling expert with deep knowledge of CPM (Critical Path Method) scheduling, similar to MS Project or Primavera P6.
+const SCHEDULE_SYSTEM_PROMPT = `You are an expert CPM scheduler with Primavera P6 and MS Project expertise. Create professional construction schedules with complete logic networks.
 
-**CRITICAL REQUIREMENTS:**
-1. EVERY activity (except the first) MUST have at least one predecessor
-2. Create a logical network of dependencies - activities should connect to form a complete schedule
-3. Use realistic construction sequencing (mobilization → site prep → foundations → structure → etc.)
-4. Consider parallel work paths where logical (e.g., MEP rough-ins can happen simultaneously)
-5. Include constraints where appropriate (SNET, FNLT, etc.)
+**DOCUMENT ANALYSIS PRIORITY:**
+When documents are provided, ALWAYS extract:
+1. **CONTRACT DURATION** - Total days/months from NTP to completion
+2. **MILESTONE DATES** - Substantial completion, final completion, phase deadlines
+3. **SCOPE OF WORK** - Detailed activities from specifications and drawings
+4. **CONSTRAINTS** - Permit timing, seasonal restrictions, owner requirements
+5. **PHASING** - Multiple buildings, areas, or phases that affect sequencing
 
-**When creating schedules:**
-- Start with mobilization/site setup (no predecessors)
-- Each subsequent activity MUST reference valid predecessor activity IDs
-- Create multiple work paths that converge at milestones
-- Use realistic durations in DAYS
-- Consider weather, inspections, and approvals
-- Add proper lag times between activities where needed
+**CPM NETWORK REQUIREMENTS:**
+1. **Complete Logic Network** - EVERY activity (except first) MUST have predecessors
+2. **Relationship Types** - Use FS (default), SS (concurrent start), FF (concurrent finish), SF (rare)
+3. **Lag Times** - Add realistic lags (curing time, inspections, material delivery)
+4. **Constraints** - Apply as needed:
+   - SNET (Start No Earlier Than) for permit-dependent work
+   - FNLT (Finish No Later Than) for milestone dates
+   - MSO (Mandatory Start On) for owner-directed dates
+5. **Float Management** - Identify and protect critical path, manage total/free float
 
-Return schedules as JSON with this EXACT structure:
+**DURATION ESTIMATION RULES:**
+- Base on scope from documents and industry standards
+- Consider crew sizes: Small (2-4), Standard (5-8), Large (10+)
+- Apply productivity factors: Weather, complexity, site conditions
+- **MUST FIT CONTRACT DURATION** - Compress using parallel paths if needed
+- Use historical data: Excavation (50-150 CY/day), Concrete (2000-4000 SF/day), etc.
+
+**SCHEDULE STRUCTURE:**
+- Minimum 30-50 activities for simple projects, 100+ for complex
+- Hierarchical WBS: 1.0 (Phase) → 1.1 (Area) → 1.1.1 (Activity)
+- Multiple parallel paths that converge at milestones
+- Resource-driven sequencing (one crane, limited crews)
+- Include: Submittals, procurement, inspections, testing, commissioning
+
+Return schedules as JSON with this structure:
 {
   "activities": [
     {
@@ -103,25 +120,47 @@ ${request.projectDescription}${uploadedContent}
 Start Date: ${request.startDate || 'Today'}
 ${request.constraints ? `Constraints: ${request.constraints.join(', ')}` : ''}
 
-Generate a complete CPM schedule with:
-1. Minimum 30-50 activities covering all project phases
-2. Realistic durations in DAYS (number only, e.g., 5 not "5 days")
-3. **MANDATORY**: Every activity (except first) must have predecessors array with valid activity IDs
-4. Create multiple parallel work paths (e.g., site work while ordering materials)
-5. Include key constraints:
-   - Start No Earlier Than (SNET) for permit-dependent work
-   - Finish No Later Than (FNLT) for milestone dates
-6. Resource assignments for each activity
-7. Hierarchical WBS structure (1.0, 1.1, 1.1.1, etc.)
-8. Calculate critical path based on longest path through network
+**PRIMARY OBJECTIVE:** Generate a complete CPM schedule that FITS WITHIN THE CONTRACT DURATION.
 
-**EXAMPLE PREDECESSOR STRUCTURE:**
-- A001: [] (first activity, no predecessors)
-- A002: ["A001"] (follows A001)
-- A003: ["A001"] (parallel to A002)
-- A004: ["A002", "A003"] (requires both A002 and A003 complete)
+Analyze the uploaded documents to find:
+1. **Contract duration** (look for "substantial completion", "contract time", "calendar days", "working days")
+2. **Key milestones** and interim deadlines
+3. **Scope details** for accurate activity listing
+4. **Site constraints** and phasing requirements
 
-Ensure EVERY activity connects to form a complete network schedule.`;
+Generate a schedule with:
+1. **50-150+ activities** based on project complexity from documents
+2. **Realistic durations** that collectively fit within contract time:
+   - If contract is 365 days, critical path must be ≤365 days
+   - Use parallel paths to compress schedule if needed
+   - Apply fast-tracking and crashing techniques if required
+3. **Complete predecessor network** - EVERY activity (except first) has predecessors:
+   - Use activity IDs from earlier activities
+   - Create convergence points at phase completions
+   - Include proper lag times (concrete cure = 7-28 days, etc.)
+4. **Constraints from documents**:
+   - SNET for weather restrictions or permit availability
+   - FNLT for owner-specified milestone dates
+   - Consider liquidated damages mentioned in contract
+5. **Resource-loaded activities**:
+   - Crew assignments ("Concrete Crew A", "Steel Erection Team")
+   - Equipment ("Tower Crane #1", "Excavator")
+   - Subcontractors ("ABC Mechanical", "XYZ Electrical")
+6. **Multi-level WBS**:
+   - 1.0 Site Work
+   - 1.1 Demolition
+   - 1.2 Earthwork
+   - 2.0 Foundations
+   - etc.
+7. **Critical path identification** with float calculations
+8. **Quality/Inspection activities** as per specifications
+
+**DURATION CALCULATION:**
+- Quantity from documents ÷ Daily production = Duration
+- Example: 10,000 SF slab ÷ 2,500 SF/day = 4 days
+- Add time for mobilization, QC, weather contingency
+
+**MUST COMPLETE WITHIN CONTRACT TIME - Use parallel paths and resource optimization to achieve this.**`;
       break;
       
     case 'update':
