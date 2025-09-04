@@ -77,8 +77,29 @@ export class ScheduleDbStorage implements IStorage {
   }
 
   async deleteProject(id: string): Promise<boolean> {
-    const result = await db.delete(schema.projects).where(eq(schema.projects.id, id));
-    return !!result;
+    try {
+      // Delete in the correct order to avoid foreign key constraint violations
+      
+      // 1. Delete all relationships for activities in this project
+      await db.delete(schema.relationships).where(eq(schema.relationships.projectId, id));
+      
+      // 2. Delete all activities in this project
+      await db.delete(schema.activities).where(eq(schema.activities.projectId, id));
+      
+      // 3. Delete all WBS items in this project
+      await db.delete(schema.wbs).where(eq(schema.wbs.projectId, id));
+      
+      // 4. Delete all calendars in this project
+      await db.delete(schema.calendars).where(eq(schema.calendars.projectId, id));
+      
+      // 5. Finally delete the project itself
+      const result = await db.delete(schema.projects).where(eq(schema.projects.id, id));
+      
+      return !!result;
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      throw error;
+    }
   }
 
   // WBS
