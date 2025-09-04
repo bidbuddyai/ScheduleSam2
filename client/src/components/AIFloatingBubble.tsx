@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Sparkles, 
   Bot, 
@@ -376,7 +377,7 @@ The schedule now reflects your requested changes. What else would you like to mo
   };
 
   return (
-    <>
+    <TooltipProvider>
       {/* Floating Bubble */}
       <AnimatePresence>
         {!isOpen && (
@@ -476,6 +477,13 @@ The schedule now reflects your requested changes. What else would you like to mo
               {/* Chat Tab */}
               <TabsContent value="chat" className="h-[calc(100%-60px)] p-0">
                 <div className="flex flex-col h-full">
+                  <Alert className="mx-6 mt-4 mb-2 bg-blue-50 border-blue-200">
+                    <MessageCircle className="w-4 h-4 text-blue-600" />
+                    <AlertDescription className="text-sm">
+                      <strong>Interactive Chat:</strong> Have a conversation with AI to iteratively refine your schedule. Ask questions, request changes, and build step-by-step.
+                    </AlertDescription>
+                  </Alert>
+                  
                   {/* Model Selector */}
                   <div className="px-6 py-3 border-b bg-gray-50">
                     <div className="flex items-center justify-between">
@@ -720,12 +728,19 @@ The schedule now reflects your requested changes. What else would you like to mo
               {/* Quick Generate Tab */}
               <TabsContent value="generate" className="px-6 py-4">
                 <div className="space-y-4">
+                  <Alert className="bg-purple-50 border-purple-200">
+                    <Sparkles className="w-4 h-4 text-purple-600" />
+                    <AlertDescription className="text-sm">
+                      <strong>Quick Generate:</strong> Describe your project once and instantly create a complete CPM schedule. Perfect for initial schedule creation.
+                    </AlertDescription>
+                  </Alert>
+                  
                   <div>
                     <Label>Project Description</Label>
                     <Textarea
                       value={projectDescription}
                       onChange={(e) => setProjectDescription(e.target.value)}
-                      placeholder="Describe your construction project in detail..."
+                      placeholder="Example: 10-story office building, 365 day contract, includes site work, foundations, structure, MEP, and finishes..."
                       className="min-h-[150px] mt-2"
                     />
                     
@@ -945,6 +960,6 @@ The schedule now reflects your requested changes. What else would you like to mo
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 }
