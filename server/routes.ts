@@ -857,6 +857,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // AI Schedule Generation Routes
   
+  // Route for prompt enhancement
+  app.post("/api/schedule/ai/enhance-prompt", isAuthenticated, async (req, res) => {
+    try {
+      const { prompt, model = "Claude-3-Haiku" } = req.body;
+      
+      if (!prompt || prompt.trim().length === 0) {
+        return res.status(400).json({ error: "Prompt is required" });
+      }
+      
+      // Use POE API to enhance the prompt
+      const { poe } = await import("./poeClient");
+      
+      const enhancementSystemPrompt = `You are a prompt enhancement expert. Your job is to take user prompts for construction project scheduling and make them clearer, more detailed, and more specific to get better AI-generated schedules.
+
+Rules:
+1. Keep the core intent of the original prompt
+2. Add relevant details about project phases, durations, and dependencies
+3. Specify any constraints or special requirements clearly
+4. Make it actionable and specific
+5. Keep it concise but comprehensive
+6. If the prompt mentions documents, keep that reference
+
+Return ONLY the enhanced prompt text, nothing else.`;
+      
+      const response = await poe.chat.completions.create({
+        model: model,
+        messages: [
+          { role: "system", content: enhancementSystemPrompt },
+          { role: "user", content: `Enhance this construction scheduling prompt:\n\n${prompt}` }
+        ],
+        temperature: 0.3,
+        max_tokens: 500
+      });
+      
+      const enhancedPrompt = response.choices[0]?.message?.content || prompt;
+      
+      res.json({ 
+        enhancedPrompt: enhancedPrompt.trim(),
+        original: prompt 
+      });
+      
+    } catch (error: any) {
+      console.error("Prompt enhancement failed:", error);
+      res.status(500).json({ 
+        error: "Failed to enhance prompt",
+        enhancedPrompt: req.body.prompt // Fallback to original
+      });
+    }
+  });
+  
   // Route for AI Floating Bubble
   app.post("/api/schedule/ai/generate", isAuthenticated, async (req, res) => {
     try {

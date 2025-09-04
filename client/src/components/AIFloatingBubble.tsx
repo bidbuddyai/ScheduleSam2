@@ -28,7 +28,8 @@ import {
   Link2,
   Info,
   User,
-  RefreshCw
+  RefreshCw,
+  Wand2
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -100,6 +101,7 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
   const [chatInput, setChattInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -278,6 +280,39 @@ The schedule now reflects your requested changes. What else would you like to mo
       .slice(0, 5)
       .map(([wbs, count]) => `• Phase ${wbs}: ${count} activities`)
       .join('\n');
+  };
+
+  // Enhance prompt using a fast AI model
+  const enhancePrompt = async () => {
+    if (!chatInput.trim() || isEnhancing) return;
+    
+    setIsEnhancing(true);
+    try {
+      const response = await apiRequest("POST", "/api/schedule/ai/enhance-prompt", {
+        prompt: chatInput,
+        model: "Claude-3-Haiku" // Fast and cheap model for enhancement
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.enhancedPrompt) {
+          setChattInput(data.enhancedPrompt);
+          toast({
+            title: "Prompt Enhanced",
+            description: "Your prompt has been improved for better results",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to enhance prompt:", error);
+      toast({
+        title: "Enhancement Failed",
+        description: "Could not enhance prompt. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsEnhancing(false);
+    }
   };
 
   const handleSendMessage = () => {
@@ -578,23 +613,55 @@ The schedule now reflects your requested changes. What else would you like to mo
                   {/* Chat Input */}
                   <div className="px-6 py-4 border-t bg-gray-50">
                     <div className="flex gap-2">
-                      <Textarea
-                        value={chatInput}
-                        onChange={(e) => setChattInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendMessage();
-                          }
-                        }}
-                        placeholder="Describe your project or ask for changes..."
-                        className="flex-1 min-h-[80px] resize-none"
-                        disabled={isGenerating}
-                      />
+                      <div className="flex-1 space-y-2">
+                        <Textarea
+                          value={chatInput}
+                          onChange={(e) => setChattInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                          placeholder="Describe your project or ask for changes..."
+                          className="min-h-[80px] resize-none"
+                          disabled={isGenerating || isEnhancing}
+                        />
+                        {chatInput.trim() && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={enhancePrompt}
+                                disabled={isEnhancing || isGenerating}
+                                className="w-full justify-start text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                              >
+                                {isEnhancing ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Enhancing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Wand2 className="w-4 h-4 mr-2" />
+                                    Enhance Prompt with AI
+                                  </>
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-sm">
+                                Uses AI to improve your prompt with more details, better structure, and specific requirements for optimal schedule generation
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                       <div className="flex flex-col gap-2">
                         <Button
                           onClick={handleSendMessage}
-                          disabled={!chatInput.trim() || isGenerating}
+                          disabled={!chatInput.trim() || isGenerating || isEnhancing}
                           className="bg-purple-600 hover:bg-purple-700"
                         >
                           {isGenerating ? (
