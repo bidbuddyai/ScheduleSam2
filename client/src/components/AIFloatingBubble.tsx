@@ -107,6 +107,7 @@ export default function AIFloatingBubble({ projectId, defaultOpen = false }: AIF
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isQuickGenerateDragOver, setIsQuickGenerateDragOver] = useState(false); // Separate state for Quick Generate
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const miniChatScrollRef = useRef<HTMLDivElement>(null);
@@ -954,38 +955,7 @@ The schedule now reflects your requested changes. What else would you like to mo
               </TabsContent>
 
               {/* Quick Generate Tab */}
-              <TabsContent 
-                value="generate" 
-                className="relative px-6 py-4"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragOver(true);
-                }}
-                onDragLeave={() => setIsDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragOver(false);
-                  const files = Array.from(e.dataTransfer.files);
-                  if (files.length > 0) {
-                    setUploadedFiles(prev => [...prev, ...files.map(f => f.name)]);
-                    toast({
-                      title: "Files Dropped",
-                      description: `${files.length} file(s) will be analyzed when generating the schedule`,
-                    });
-                  }
-                }}
-              >
-                {/* Drag Overlay */}
-                {isDragOver && (
-                  <div className="absolute inset-0 bg-purple-50 border-2 border-dashed border-purple-500 rounded-lg z-10 flex items-center justify-center">
-                    <div className="text-center">
-                      <Upload className="w-12 h-12 text-purple-600 mx-auto mb-2" />
-                      <p className="text-purple-600 font-medium text-lg">Drop files here</p>
-                      <p className="text-sm text-purple-500">Specs, drawings, bid documents</p>
-                    </div>
-                  </div>
-                )}
-                
+              <TabsContent value="generate" className="px-6 py-4">
                 <div className="space-y-4">
                   <Alert className="bg-purple-50 border-purple-200">
                     <Sparkles className="w-4 h-4 text-purple-600" />
@@ -1040,14 +1010,30 @@ The schedule now reflects your requested changes. What else would you like to mo
                   <div>
                     <Label className="mb-2">Upload Documents (Optional)</Label>
                     <div
-                      className="border-2 border-dashed rounded-lg p-4 text-center transition-colors border-gray-300 hover:border-purple-400"
+                      className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                        isQuickGenerateDragOver ? 'border-purple-500 bg-purple-50' : 'border-gray-300 hover:border-purple-400'
+                      }`}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsQuickGenerateDragOver(true);
+                      }}
                       onDragOver={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                       }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Only set to false if we're leaving the drop zone entirely
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          setIsQuickGenerateDragOver(false);
+                        }
+                      }}
                       onDrop={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        setIsQuickGenerateDragOver(false);
                         const files = Array.from(e.dataTransfer.files);
                         if (files.length > 0) {
                           setUploadedFiles(prev => [...prev, ...files.map(f => f.name)]);
@@ -1058,7 +1044,16 @@ The schedule now reflects your requested changes. What else would you like to mo
                         }
                       }}
                     >
-                      <div>
+                      {/* Drop Zone Overlay */}
+                      {isQuickGenerateDragOver && (
+                        <div className="absolute inset-0 bg-purple-50 bg-opacity-90 rounded-lg flex items-center justify-center pointer-events-none">
+                          <div className="text-center">
+                            <Upload className="w-10 h-10 text-purple-600 mx-auto mb-2" />
+                            <p className="text-purple-600 font-medium">Drop files here</p>
+                          </div>
+                        </div>
+                      )}
+                      <div className={isQuickGenerateDragOver ? 'opacity-20' : ''}>
                         <input
                           ref={fileInputRef}
                           type="file"
@@ -1086,7 +1081,7 @@ The schedule now reflects your requested changes. What else would you like to mo
                           Choose Files (Multiple Allowed)
                         </Button>
                       </div>
-                      <p className="text-xs text-gray-600 mt-2">
+                      <p className={`text-xs text-gray-600 mt-2 ${isQuickGenerateDragOver ? 'opacity-20' : ''}`}>
                         Upload bid documents, specs, or drawings for AI to extract contract duration and scope
                       </p>
                       
