@@ -30,7 +30,8 @@ import {
   Info,
   User,
   RefreshCw,
-  Wand2
+  Wand2,
+  Clock
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -521,8 +522,36 @@ The schedule now reflects your requested changes. What else would you like to mo
                         <Bot className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                         <h3 className="text-lg font-medium mb-2">Start a Conversation</h3>
                         <p className="text-gray-500 mb-6">
-                          Describe your project or upload documents to generate a CPM schedule
+                          I'll help create your CPM schedule. I can ask questions to gather details.
                         </p>
+                        
+                        {/* Smart Questions */}
+                        <div className="mb-6 p-4 bg-gray-50 rounded-lg max-w-md mx-auto">
+                          <p className="text-sm font-medium mb-3">Let me know about your project:</p>
+                          <div className="space-y-2 text-left">
+                            <button 
+                              onClick={() => handleQuickAction("What type of construction project is this? When is the planned start date?")}
+                              className="w-full text-left text-sm p-2 hover:bg-gray-100 rounded flex items-center gap-2"
+                            >
+                              <Calendar className="w-4 h-4 text-gray-400" />
+                              Tell me project type & start date
+                            </button>
+                            <button 
+                              onClick={() => handleQuickAction("What's the contract duration? Are there any milestone dates I should know about?")}
+                              className="w-full text-left text-sm p-2 hover:bg-gray-100 rounded flex items-center gap-2"
+                            >
+                              <Clock className="w-4 h-4 text-gray-400" />
+                              Contract duration & milestones
+                            </button>
+                            <button 
+                              onClick={() => handleQuickAction("What are the major phases or work packages for this project?")}
+                              className="w-full text-left text-sm p-2 hover:bg-gray-100 rounded flex items-center gap-2"
+                            >
+                              <GitBranch className="w-4 h-4 text-gray-400" />
+                              Major phases & work packages
+                            </button>
+                          </div>
+                        </div>
                         
                         {/* Quick Actions */}
                         <div className="grid grid-cols-2 gap-2 max-w-md mx-auto">
@@ -813,11 +842,34 @@ The schedule now reflects your requested changes. What else would you like to mo
                         isDragOver ? 'border-purple-500 bg-purple-50' : 'border-gray-300'
                       }`}
                     >
-                      <ObjectUploader
-                        onUploadComplete={handleFileUpload}
-                        projectId={projectId}
-                        folder="schedule-docs"
-                      />
+                      <div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || []);
+                            if (files.length > 0) {
+                              setUploadedFiles(prev => [...prev, ...files.map(f => f.name)]);
+                              toast({
+                                title: "Files Selected",
+                                description: `${files.length} file(s) will be analyzed by AI when generating the schedule`,
+                              });
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full"
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          Choose Files (Multiple Allowed)
+                        </Button>
+                      </div>
                       <p className="text-xs text-gray-600 mt-2">
                         Upload bid documents, specs, or drawings for AI to extract contract duration and scope
                       </p>
