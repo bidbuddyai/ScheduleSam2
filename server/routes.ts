@@ -939,6 +939,7 @@ Return ONLY the enhanced prompt text, nothing else.`;
   app.post("/api/schedule/ai/generate", isAuthenticated, async (req, res) => {
     try {
       console.log('AI Floating Bubble generation request:', req.body);
+      console.log('Project ID from request:', req.body.projectId);
       const result = await generateScheduleWithAI(req.body);
       
       // Always return the AI result first, even if database saving fails
@@ -947,20 +948,25 @@ Return ONLY the enhanced prompt text, nothing else.`;
       // Try to save to database but don't fail if it doesn't work
       if (result.activities && result.activities.length > 0) {
         try {
-          const projects = await storage.getProjects();
-          let projectId: string;
+          // Use projectId from request body if provided
+          let projectId: string = req.body.projectId;
           
-          if (projects.length > 0) {
-            projectId = projects[0].id;
-          } else {
-            // Create a default project if none exists
-            const newProject = await storage.createProject({
-              name: req.body.projectDescription || "AI Generated Schedule",
-              description: req.body.userRequest || "Generated with AI",
-              contractStartDate: req.body.startDate || new Date().toISOString().split('T')[0],
-              contractFinishDate: req.body.endDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-            });
-            projectId = newProject.id;
+          // Only create a project if no projectId was provided
+          if (!projectId) {
+            const projects = await storage.getProjects();
+            
+            if (projects.length > 0) {
+              projectId = projects[0].id;
+            } else {
+              // Create a default project if none exists
+              const newProject = await storage.createProject({
+                name: req.body.projectDescription || "AI Generated Schedule",
+                description: req.body.userRequest || "Generated with AI",
+                contractStartDate: req.body.startDate || new Date().toISOString().split('T')[0],
+                contractFinishDate: req.body.endDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+              });
+              projectId = newProject.id;
+            }
           }
           
           // Clear existing activities

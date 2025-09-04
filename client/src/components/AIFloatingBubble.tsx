@@ -31,7 +31,7 @@ import {
   User,
   RefreshCw,
   Wand2,
-  Clock
+  Clock,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
