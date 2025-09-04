@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import Layout from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ type CreateProjectForm = z.infer<typeof createProjectSchema>;
 export default function Projects() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   
@@ -78,14 +79,16 @@ export default function Projects() {
       const response = await apiRequest("POST", "/api/projects", data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (project) => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       setIsCreateDialogOpen(false);
       form.reset();
       toast({
         title: "Project created",
-        description: "Your new project has been created successfully.",
+        description: "Opening schedule generator...",
       });
+      // Navigate to project page with flag to open AI modal
+      navigate(`/project/${project.id}?openAI=true`);
     },
     onError: (error: any) => {
       if (isUnauthorizedError(error)) {

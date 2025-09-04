@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Project, Activity, Wbs, Relationship, Calendar } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,6 +48,19 @@ export default function ProjectDetail() {
   const [activeTab, setActiveTab] = useState("schedule");
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [showActivityDialog, setShowActivityDialog] = useState(false);
+  const [openAIModal, setOpenAIModal] = useState(false);
+  
+  // Check if we should open AI modal (when coming from project creation)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const shouldOpenAI = searchParams.get('openAI') === 'true';
+    if (shouldOpenAI) {
+      setOpenAIModal(true);
+      // Clean up URL after opening modal
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
 
   // Data queries
   const { data: project, isLoading: projectLoading } = useQuery<Project>({
@@ -476,7 +489,7 @@ export default function ProjectDetail() {
         />
 
         {/* AI Floating Bubble */}
-        <AIFloatingBubble projectId={id!} />
+        <AIFloatingBubble projectId={id!} defaultOpen={openAIModal} />
       </main>
     </Layout>
   );

@@ -41,6 +41,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface AIFloatingBubbleProps {
   projectId: string;
+  defaultOpen?: boolean;
 }
 
 interface ChatMessage {
@@ -89,9 +90,9 @@ const POE_MODELS = [
   { value: "DeepSeek-V3", label: "DeepSeek V3", category: "Other" },
 ];
 
-export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
+export default function AIFloatingBubble({ projectId, defaultOpen = false }: AIFloatingBubbleProps) {
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const [isMinimized, setIsMinimized] = useState(false);
   const [activeTab, setActiveTab] = useState("chat");
   const [selectedModel, setSelectedModel] = useState("Claude-Sonnet-4");
@@ -105,6 +106,13 @@ export default function AIFloatingBubble({ projectId }: AIFloatingBubbleProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-open when defaultOpen is true (from project creation)
+  useEffect(() => {
+    if (defaultOpen) {
+      setIsOpen(true);
+    }
+  }, [defaultOpen]);
 
   // Scroll to bottom when new messages are added
   useEffect(() => {
