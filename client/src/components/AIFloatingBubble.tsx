@@ -707,7 +707,35 @@ The schedule now reflects your requested changes. What else would you like to mo
                   </ScrollArea>
 
                   {/* Chat Input */}
-                  <div className="px-6 py-4 border-t bg-gray-50">
+                  <div 
+                    className="relative px-6 py-4 border-t bg-gray-50"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(true);
+                    }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(false);
+                      const files = Array.from(e.dataTransfer.files);
+                      if (files.length > 0) {
+                        setUploadedFiles(prev => [...prev, ...files.map(f => f.name)]);
+                        toast({
+                          title: "Files Dropped",
+                          description: `${files.length} file(s) will be analyzed by AI`,
+                        });
+                      }
+                    }}
+                  >
+                    {isDragOver && (
+                      <div className="absolute inset-0 bg-purple-50 border-2 border-dashed border-purple-500 rounded-lg z-10 flex items-center justify-center">
+                        <div className="text-center">
+                          <Upload className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                          <p className="text-purple-600 font-medium">Drop files here</p>
+                          <p className="text-sm text-purple-500">Multiple files supported</p>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <div className="flex-1 space-y-2">
                         <Textarea
