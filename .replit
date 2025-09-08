@@ -12,6 +12,7 @@ run = ["npm", "run", "start"]
 
 [env]
 PORT = "5000"
+REPLIT_DOMAINS = "${REPL_SLUG}.${REPL_OWNER}.replit.dev"
 
 [workflows]
 runButton = "Project"
